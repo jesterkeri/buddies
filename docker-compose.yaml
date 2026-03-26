@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  buddies:
+    build: .
+    container_name: buddies
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - buddies-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  buddies-data:

@@ -1,0 +1,10 @@
+node_modules
+dist
+.eliza
+.env
+.env.local
+.git
+.DS_Store
+data
+*.md
+!README.md

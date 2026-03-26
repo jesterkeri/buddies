@@ -1,0 +1,23 @@
+{
+  "version": "0.1",
+  "ops": [
+    {
+      "type": "container/run",
+      "id": "buddies-agent",
+      "args": {
+        "image": "joshuazekeri/buddies:latest",
+        "expose": 3000,
+        "env": {
+          "OPENAI_API_KEY": "nosana",
+          "OPENAI_API_URL": "https://<nosana-endpoint>.node.k8s.prd.nos.ci/v1",
+          "MODEL_NAME": "qwen3.5-27b",
+          "SERVER_PORT": "3000",
+          "NODE_ENV": "production"
+        }
+      },
+      "execution": {
+        "group": "run"
+      }
+    }
+  ]
+}
