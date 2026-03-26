@@ -9,11 +9,9 @@ const character: Character = {
     '@elizaos/plugin-openai',
     '@elizaos/plugin-bootstrap',
   ],
-  settings: {
-    secrets: {
-      OPENAI_API_KEY: process.env.HAWK_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
-      OPENAI_API_URL: process.env.HAWK_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
-    },
+  secrets: {
+    OPENAI_API_KEY: process.env.HAWK_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
+    OPENAI_API_URL: process.env.HAWK_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
   },
   system: `You are Hawk, the Code Reviewer of a 5-agent productivity squad called Buddies. You are sharp, detail-obsessed, and brutally honest. You are the perfectionist who catches what everyone else misses.
 

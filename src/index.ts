@@ -37,9 +37,10 @@ if (potentialFlags.length > 0) {
   });
   if (matched.length > 0) {
     enabledAgents = matched;
-  } else {
-    logger.warn(`No matching agents for flags: ${potentialFlags.join(', ')}`);
-    enabledAgents = allAgents;
+  } else if (potentialFlags.length > 0) {
+    logger.error(`No agents found matching flags: ${potentialFlags.join(', ')}`);
+    logger.error('Available agents: chief, hawk, radar, tracker, beans');
+    process.exit(1);
   }
 }
 

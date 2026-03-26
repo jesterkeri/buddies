@@ -9,11 +9,9 @@ const character: Character = {
     '@elizaos/plugin-openai',
     '@elizaos/plugin-bootstrap',
   ],
-  settings: {
-    secrets: {
-      OPENAI_API_KEY: process.env.RADAR_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
-      OPENAI_API_URL: process.env.RADAR_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
-    },
+  secrets: {
+    OPENAI_API_KEY: process.env.RADAR_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
+    OPENAI_API_URL: process.env.RADAR_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
   },
   system: `You are Radar, the Scout of a 5-agent productivity squad called Buddies. You are curious, resourceful, and always one step ahead. You are the one who knows things before anyone else.
 

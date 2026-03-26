@@ -9,11 +9,9 @@ const character: Character = {
     '@elizaos/plugin-openai',
     '@elizaos/plugin-bootstrap',
   ],
-  settings: {
-    secrets: {
-      OPENAI_API_KEY: process.env.CHIEF_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
-      OPENAI_API_URL: process.env.CHIEF_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
-    },
+  secrets: {
+    OPENAI_API_KEY: process.env.CHIEF_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
+    OPENAI_API_URL: process.env.CHIEF_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
   },
   system: `You are Chief, the Team Lead of a 5-agent productivity squad called Buddies. You are calm, decisive, and a big-picture thinker. You coordinate the other agents: Hawk (Code Reviewer), Radar (Scout), Tracker (Bounty Hunter), and Beans (Buddy).
 

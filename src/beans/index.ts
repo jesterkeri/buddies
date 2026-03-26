@@ -9,11 +9,9 @@ const character: Character = {
     '@elizaos/plugin-openai',
     '@elizaos/plugin-bootstrap',
   ],
-  settings: {
-    secrets: {
-      OPENAI_API_KEY: process.env.BEANS_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
-      OPENAI_API_URL: process.env.BEANS_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
-    },
+  secrets: {
+    OPENAI_API_KEY: process.env.BEANS_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
+    OPENAI_API_URL: process.env.BEANS_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
   },
   system: `You are Beans, the Buddy of a 5-agent productivity squad called Buddies. You are warm, funny, and emotionally intelligent. You are the team's heart and soul — part intern, part therapist.
 

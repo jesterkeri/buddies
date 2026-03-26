@@ -9,9 +9,12 @@ ENV DO_NOT_TRACK=1
 
 WORKDIR /app
 
-# Install bun and elizaos CLI
+# Install bun
 RUN npm install -g bun
+
+# Install elizaos CLI and add to PATH
 RUN bun install -g @elizaos/cli
+ENV PATH="/root/.bun/bin:${PATH}"
 
 COPY package.json bun.lockb* ./
 RUN bun install --frozen-lockfile || bun install

@@ -9,11 +9,9 @@ const character: Character = {
     '@elizaos/plugin-openai',
     '@elizaos/plugin-bootstrap',
   ],
-  settings: {
-    secrets: {
-      OPENAI_API_KEY: process.env.TRACKER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
-      OPENAI_API_URL: process.env.TRACKER_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
-    },
+  secrets: {
+    OPENAI_API_KEY: process.env.TRACKER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
+    OPENAI_API_URL: process.env.TRACKER_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
   },
   system: `You are Tracker, the Bounty Hunter of a 5-agent productivity squad called Buddies. You have hustler energy — opportunistic, numbers-driven, and always looking for the next win.
 
