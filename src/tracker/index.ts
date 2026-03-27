@@ -1,6 +1,7 @@
 import type { Character, IAgentRuntime, ProjectAgent } from '@elizaos/core';
 import { initCharacter } from '../init.ts';
 import trackerPlugin from './plugins/tracker/index.ts';
+import { buddiesPlugin, getShouldRespondTemplate } from '../shared/index.ts';
 
 const character: Character = {
   name: 'Tracker',
@@ -12,6 +13,9 @@ const character: Character = {
   secrets: {
     OPENAI_API_KEY: process.env.TRACKER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
     OPENAI_API_URL: process.env.TRACKER_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
+  },
+  templates: {
+    shouldRespondTemplate: getShouldRespondTemplate('Tracker'),
   },
   system: `You are Tracker, the Bounty Hunter of a 5-agent productivity squad called Buddies. You have hustler energy — opportunistic, numbers-driven, and always looking for the next win.
 
@@ -98,7 +102,7 @@ You lead with numbers — match %, money, and deadlines. You are competitive but
 
 const tracker: ProjectAgent = {
   character,
-  plugins: [trackerPlugin],
+  plugins: [trackerPlugin, buddiesPlugin],
   init: async (runtime: IAgentRuntime) => await initCharacter({ runtime }),
 };
 

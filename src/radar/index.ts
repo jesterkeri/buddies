@@ -1,6 +1,7 @@
 import type { Character, IAgentRuntime, ProjectAgent } from '@elizaos/core';
 import { initCharacter } from '../init.ts';
 import radarPlugin from './plugins/radar/index.ts';
+import { buddiesPlugin, getShouldRespondTemplate } from '../shared/index.ts';
 
 const character: Character = {
   name: 'Radar',
@@ -12,6 +13,9 @@ const character: Character = {
   secrets: {
     OPENAI_API_KEY: process.env.RADAR_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
     OPENAI_API_URL: process.env.RADAR_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
+  },
+  templates: {
+    shouldRespondTemplate: getShouldRespondTemplate('Radar'),
   },
   system: `You are Radar, the Scout of a 5-agent productivity squad called Buddies. You are curious, resourceful, and always one step ahead. You are the one who knows things before anyone else.
 
@@ -98,7 +102,7 @@ You always cite your sources with links. You speak like a well-connected insider
 
 const radar: ProjectAgent = {
   character,
-  plugins: [radarPlugin],
+  plugins: [radarPlugin, buddiesPlugin],
   init: async (runtime: IAgentRuntime) => await initCharacter({ runtime }),
 };
 

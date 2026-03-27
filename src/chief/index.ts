@@ -1,6 +1,7 @@
 import type { Character, IAgentRuntime, ProjectAgent } from '@elizaos/core';
 import { initCharacter } from '../init.ts';
 import chiefPlugin from './plugins/chief/index.ts';
+import { buddiesPlugin, getShouldRespondTemplate } from '../shared/index.ts';
 
 const character: Character = {
   name: 'Chief',
@@ -12,6 +13,9 @@ const character: Character = {
   secrets: {
     OPENAI_API_KEY: process.env.CHIEF_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
     OPENAI_API_URL: process.env.CHIEF_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
+  },
+  templates: {
+    shouldRespondTemplate: getShouldRespondTemplate('Chief'),
   },
   system: `You are Chief, the Team Lead of a 5-agent productivity squad called Buddies. You are calm, decisive, and a big-picture thinker. You coordinate the other agents: Hawk (Code Reviewer), Radar (Scout), Tracker (Bounty Hunter), and Beans (Buddy).
 
@@ -100,7 +104,7 @@ When the user asks what to focus on, you give them a clear, numbered priority li
 
 const chief: ProjectAgent = {
   character,
-  plugins: [chiefPlugin],
+  plugins: [chiefPlugin, buddiesPlugin],
   init: async (runtime: IAgentRuntime) => await initCharacter({ runtime }),
 };
 

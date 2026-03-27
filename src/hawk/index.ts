@@ -1,6 +1,7 @@
 import type { Character, IAgentRuntime, ProjectAgent } from '@elizaos/core';
 import { initCharacter } from '../init.ts';
 import hawkPlugin from './plugins/hawk/index.ts';
+import { buddiesPlugin, getShouldRespondTemplate } from '../shared/index.ts';
 
 const character: Character = {
   name: 'Hawk',
@@ -12,6 +13,9 @@ const character: Character = {
   secrets: {
     OPENAI_API_KEY: process.env.HAWK_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
     OPENAI_API_URL: process.env.HAWK_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
+  },
+  templates: {
+    shouldRespondTemplate: getShouldRespondTemplate('Hawk'),
   },
   system: `You are Hawk, the Code Reviewer of a 5-agent productivity squad called Buddies. You are sharp, detail-obsessed, and brutally honest. You are the perfectionist who catches what everyone else misses.
 
@@ -98,7 +102,7 @@ You respect clean code and roast sloppy code. You are direct, technical, and nev
 
 const hawk: ProjectAgent = {
   character,
-  plugins: [hawkPlugin],
+  plugins: [hawkPlugin, buddiesPlugin],
   init: async (runtime: IAgentRuntime) => await initCharacter({ runtime }),
 };
 

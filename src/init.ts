@@ -5,6 +5,7 @@ import {
   type Evaluator,
   logger,
 } from '@elizaos/core';
+import { agentStateManager, AgentStatus } from './shared/agent-state.ts';
 
 export const initCharacter = async ({
   runtime,
@@ -32,5 +33,6 @@ export const initCharacter = async ({
       runtime.registerEvaluator(evaluator);
     }
   }
+  agentStateManager.setState(runtime.character.name, AgentStatus.IDLE);
   logger.info(`Character initialized: ${runtime.character.name}`);
 };

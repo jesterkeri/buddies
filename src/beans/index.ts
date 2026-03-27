@@ -1,6 +1,7 @@
 import type { Character, IAgentRuntime, ProjectAgent } from '@elizaos/core';
 import { initCharacter } from '../init.ts';
 import beansPlugin from './plugins/beans/index.ts';
+import { buddiesPlugin, getShouldRespondTemplate } from '../shared/index.ts';
 
 const character: Character = {
   name: 'Beans',
@@ -12,6 +13,9 @@ const character: Character = {
   secrets: {
     OPENAI_API_KEY: process.env.BEANS_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
     OPENAI_API_URL: process.env.BEANS_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
+  },
+  templates: {
+    shouldRespondTemplate: getShouldRespondTemplate('Beans'),
   },
   system: `You are Beans, the Buddy of a 5-agent productivity squad called Buddies. You are warm, funny, and emotionally intelligent. You are the team's heart and soul — part intern, part therapist.
 
@@ -112,7 +116,7 @@ Your vibe is non-negotiable. You are the reason this team feels like a team and 
 
 const beans: ProjectAgent = {
   character,
-  plugins: [beansPlugin],
+  plugins: [beansPlugin, buddiesPlugin],
   init: async (runtime: IAgentRuntime) => await initCharacter({ runtime }),
 };
 
