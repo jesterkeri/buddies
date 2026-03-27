@@ -15,7 +15,10 @@
     "lint": "prettier --write ./src",
     "format": "prettier --write ./src",
     "format:check": "prettier --check ./src",
-    "clean": "rm -rf dist node_modules .eliza"
+    "clean": "rm -rf dist node_modules .eliza",
+    "frontend:dev": "cd frontend && bun run dev",
+    "frontend:build": "cd frontend && bun run build",
+    "frontend:install": "cd frontend && bun install"
   },
   "dependencies": {
     "@elizaos/cli": "1.7.2",

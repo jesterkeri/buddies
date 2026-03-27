@@ -9,3 +9,5 @@ dist/
 data/
 bun.lockb
 bun.lock
+frontend/dist/
+frontend/node_modules/

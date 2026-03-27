@@ -1,0 +1,150 @@
+@import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-teal: #2BB6B3;
+  --color-ink: #0A0A0A;
+  --color-red: #E41937;
+  --color-yellow: #F9D616;
+  --color-paper: #F2F4F3;
+  --color-slate: #232A38;
+  --color-flesh: #4A232D;
+
+  --color-chief: #3b82f6;
+  --color-hawk: #E41937;
+  --color-radar: #2BB6B3;
+  --color-tracker: #F9D616;
+  --color-beans: #a855f7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--color-teal);
+  font-family: 'Space Mono', monospace;
+  color: var(--color-ink);
+  min-height: 100vh;
+  background-image: radial-gradient(var(--color-ink) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Comic panel base */
+.panel {
+  background-color: var(--color-paper);
+  border: 4px solid var(--color-ink);
+  box-shadow: 6px 6px 0px var(--color-ink);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.panel:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px var(--color-ink);
+}
+
+.panel-header {
+  background-color: var(--color-ink);
+  color: var(--color-paper);
+  padding: 0.5rem 1rem;
+  font-family: 'Permanent Marker', cursive;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 1.1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 4px solid var(--color-ink);
+}
+
+.panel-header .badge {
+  background-color: var(--color-yellow);
+  color: var(--color-ink);
+  font-family: 'Space Mono', monospace;
+  font-weight: bold;
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 2px;
+  transform: rotate(-3deg);
+}
+
+.panel-header .badge-live {
+  background-color: var(--color-red);
+  color: var(--color-paper);
+}
+
+/* Tape decoration */
+.tape {
+  position: absolute;
+  width: 80px;
+  height: 25px;
+  background-color: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(0,0,0,0.2);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transform: rotate(-45deg);
+  z-index: 20;
+  pointer-events: none;
+}
+.tape-tl { top: -10px; left: -20px; }
+.tape-br { bottom: -10px; right: -20px; background-color: rgba(249, 214, 22, 0.8); }
+.tape-tr { top: -10px; right: -20px; transform: rotate(45deg); }
+
+/* Font classes */
+.font-display {
+  font-family: 'Permanent Marker', cursive;
+}
+
+.font-mono {
+  font-family: 'Space Mono', monospace;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-ink);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-teal);
+  border: 2px solid var(--color-ink);
+}
+
+/* Terminal-style panel */
+.panel-terminal {
+  background-color: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.panel-terminal .panel-header {
+  background-color: var(--color-yellow);
+  color: var(--color-ink);
+}
+
+/* Blinking cursor */
+@keyframes blink { 50% { opacity: 0; } }
+.cursor-blink {
+  width: 10px;
+  height: 1.2em;
+  background-color: var(--color-teal);
+  animation: blink 1s step-end infinite;
+  display: inline-block;
+}
+
+/* Status bar */
+.stat-bar {
+  height: 12px;
+  border: 2px solid var(--color-ink);
+  background: #ddd;
+  position: relative;
+  flex: 1;
+  margin-left: 0.5rem;
+}
+.stat-fill {
+  height: 100%;
+  border-right: 2px solid var(--color-ink);
+}
