@@ -25,12 +25,10 @@ const buddiesPlugin: Plugin = {
     // Set initial state
     agentStateManager.setState(agentName, AgentStatus.IDLE);
 
-    // Only Chief bootstraps the team channel (first agent in array)
-    if (agentName === 'Chief') {
-      await bootstrapTeamChannel(runtime).catch((err) => {
-        logger.error(`[BUDDIES] Team channel bootstrap failed: ${err}`);
-      });
-    }
+    // Any agent can bootstrap the team channel (first to run wins, others skip)
+    await bootstrapTeamChannel(runtime).catch((err) => {
+      logger.error(`[BUDDIES] Team channel bootstrap failed for ${agentName}: ${err}`);
+    });
   },
 };
 

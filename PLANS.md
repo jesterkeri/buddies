@@ -36,28 +36,28 @@
 - [x] 19. Shared agent state system (WORKING / IDLE / MEETING / REVIEWING)
 - [x] 20. Test multi-agent conversation flow end-to-end
 
-## Phase 5: Dashboard Shell & Chat Room (Day 3–5)
-- [ ] 21. Scaffold React + Tailwind dashboard app
-- [ ] 22. Build tab/panel routing (Chat Room | Pixel Office | Task Board | Activity)
-- [ ] 23. Build chat room layout (message list, input bar, agent sidebar)
-- [ ] 24. Add agent avatars and name badges with status indicators
-- [ ] 25. Add typing indicators per agent
-- [ ] 26. Implement @mention autocomplete
-- [ ] 27. Wire frontend to ElizaOS backend via WebSocket
-- [ ] 28. Real-time message streaming from all 5 agents
+## Phase 5: Dashboard Shell & Chat Room (Day 3–5) ~~DONE~~
+- [x] 21. Scaffold React + Tailwind dashboard app
+- [x] 22. Build tab/panel routing (Chat Room | Pixel Office | Task Board | Activity)
+- [x] 23. Build chat room layout (message list, input bar, agent sidebar)
+- [x] 24. Add agent avatars and name badges with status indicators
+- [ ] 25. Add typing indicators per agent (placeholder — needs backend streaming)
+- [x] 26. Implement @mention autocomplete
+- [x] 27. Wire frontend to ElizaOS backend via WebSocket
+- [x] 28. Real-time message streaming from all 5 agents
 
-## Phase 6: Pixel Art Office (Day 5–8)
-- [ ] 29. Set up PixiJS canvas for the office scene
-- [ ] 30. Design office tilemap (desks, meeting table, break area, Beans' couch)
-- [ ] 31. Create 5 pixel art character sprites (Chief, Hawk, Radar, Tracker, Beans)
-- [ ] 32. Character state machine (idle, walking, typing, reading, meeting, break)
-- [ ] 33. BFS pathfinding on tile grid
-- [ ] 34. Agent state → sprite sync (Hawk reviewing code = sitting at desk typing)
-- [ ] 35. Meeting animation — all agents walk to conference table when Chief calls meeting
-- [ ] 36. Beans break area — Beans walks to couch/kitchen when reminding user to rest
-- [ ] 37. Click-to-chat — click an agent sprite to open DM in chat room
-- [ ] 38. Status bubbles above sprites (speech bubble preview of latest message)
-- [ ] 39. Ambient animations (screen glow, coffee steam, clock)
+## Phase 6: Pixel Art Office (Day 5–8) ~~DONE~~
+- [x] 29. Set up PixiJS canvas for the office scene
+- [x] 30. Design office tilemap (desks, meeting table, break area, Beans' couch)
+- [x] 31. Create 5 agent characters (comic book style colored blocks with initials)
+- [x] 32. Character state machine (idle, walking, typing, meeting, break)
+- [x] 33. BFS pathfinding on tile grid
+- [x] 34. Agent state → character sync (live from /api/buddies/states)
+- [x] 35. Meeting animation — all agents walk to conference table
+- [x] 36. Beans break area position
+- [x] 37. Click-to-chat — click agent → switches to Chat Room
+- [x] 38. Status labels above characters + typing dots indicator
+- [ ] 39. Ambient animations (screen glow, coffee steam, clock) — deferred to polish
 
 ## Phase 7: Task Board (Day 8–9)
 - [ ] 40. Kanban board component (TODO | IN PROGRESS | REVIEW | DONE)

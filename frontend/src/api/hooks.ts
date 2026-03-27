@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   listAgents,
   getCurrentMessageServer,
@@ -46,9 +46,12 @@ export function useMessages(channelId: string | null | undefined) {
   const queryClient = useQueryClient();
   const { data: agents } = useAgents();
 
-  // Build agent ID → name map
-  const agentMap = new Map<string, string>();
-  agents?.forEach((a) => agentMap.set(a.id, a.name));
+  // Build agent ID → name map (memoized to avoid socket listener churn)
+  const agentMap = useMemo(() => {
+    const map = new Map<string, string>();
+    agents?.forEach((a) => map.set(a.id, a.name));
+    return map;
+  }, [agents]);
 
   const query = useQuery<ChatMessage[]>({
     queryKey: ['messages', channelId],

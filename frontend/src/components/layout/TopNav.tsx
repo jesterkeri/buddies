@@ -7,7 +7,7 @@ interface TopNavProps {
 
 const tabs: { id: TabId; label: string; enabled: boolean }[] = [
   { id: 'chat', label: 'COMMS', enabled: true },
-  { id: 'office', label: 'HQ', enabled: false },
+  { id: 'office', label: 'HQ', enabled: true },
   { id: 'tasks', label: 'MISSIONS', enabled: false },
   { id: 'activity', label: 'INTEL', enabled: false },
 ];

@@ -1,18 +1,22 @@
 import { type IAgentRuntime, logger } from '@elizaos/core';
 
 const SERVER_PORT = process.env.SERVER_PORT || '3000';
-const BASE_URL = `http://localhost:${SERVER_PORT}`;
+const SERVER_URL = process.env.SERVER_URL || `http://localhost:${SERVER_PORT}`;
 const TEAM_CHANNEL_NAME = 'Team Chat';
+const EXPECTED_AGENTS = 5;
+const MAX_RETRIES = 10;
+const RETRY_DELAY_MS = 3000;
 
 let teamChannelId: string | null = null;
 let bootstrapComplete = false;
+let bootstrapInProgress = false;
 
 export function getTeamChannelId(): string | null {
   return teamChannelId;
 }
 
 async function apiCall(path: string, options?: RequestInit): Promise<any> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${SERVER_URL}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...options,
   });
@@ -23,19 +27,46 @@ async function apiCall(path: string, options?: RequestInit): Promise<any> {
   return res.json();
 }
 
-export async function bootstrapTeamChannel(runtime: IAgentRuntime): Promise<void> {
-  if (bootstrapComplete) return;
+async function waitForAgents(): Promise<boolean> {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const agentsRes = await apiCall('/api/agents');
+      const agents = agentsRes?.data?.agents || agentsRes?.agents || agentsRes?.data || [];
+      const count = Array.isArray(agents) ? agents.length : 0;
 
-  // Wait for all agents to register with the server
-  await new Promise((resolve) => setTimeout(resolve, 3000));
+      if (count >= EXPECTED_AGENTS) {
+        logger.info(`[BUDDIES] All ${count} agents registered (attempt ${attempt})`);
+        return true;
+      }
+      logger.info(`[BUDDIES] Waiting for agents... ${count}/${EXPECTED_AGENTS} (attempt ${attempt}/${MAX_RETRIES})`);
+    } catch {
+      logger.info(`[BUDDIES] Server not ready yet (attempt ${attempt}/${MAX_RETRIES})`);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+  }
+  return false;
+}
+
+export async function bootstrapTeamChannel(_runtime: IAgentRuntime): Promise<void> {
+  // Prevent concurrent bootstrap attempts
+  if (bootstrapComplete || bootstrapInProgress) return;
+  bootstrapInProgress = true;
 
   try {
+    // Wait for all agents to register
+    const agentsReady = await waitForAgents();
+    if (!agentsReady) {
+      logger.warn('[BUDDIES] Not all agents registered, proceeding with available agents');
+    }
+
     // Get the current message server
     const serverRes = await apiCall('/api/messaging/message-servers/current');
     const messageServerId = serverRes?.data?.id || serverRes?.id || serverRes?.messageServerId;
 
     if (!messageServerId) {
       logger.warn('[BUDDIES] No message server found, skipping team channel bootstrap');
+      bootstrapInProgress = false;
       return;
     }
 
@@ -51,6 +82,7 @@ export async function bootstrapTeamChannel(runtime: IAgentRuntime): Promise<void
       teamChannelId = existing.id;
       logger.info(`[BUDDIES] Team channel already exists: ${teamChannelId}`);
       bootstrapComplete = true;
+      bootstrapInProgress = false;
       return;
     }
 
@@ -72,6 +104,7 @@ export async function bootstrapTeamChannel(runtime: IAgentRuntime): Promise<void
 
     if (!teamChannelId) {
       logger.warn('[BUDDIES] Failed to create team channel — no ID returned');
+      bootstrapInProgress = false;
       return;
     }
 
@@ -91,9 +124,8 @@ export async function bootstrapTeamChannel(runtime: IAgentRuntime): Promise<void
               body: JSON.stringify({ agentId }),
             });
             logger.info(`[BUDDIES] Added agent ${agent.name || agentId} to team channel`);
-          } catch (err) {
+          } catch {
             // Agent might already be a participant
-            logger.warn(`[BUDDIES] Could not add agent ${agent.name || agentId}: ${err}`);
           }
         }
       }
@@ -102,7 +134,8 @@ export async function bootstrapTeamChannel(runtime: IAgentRuntime): Promise<void
     bootstrapComplete = true;
     logger.info('[BUDDIES] Team channel bootstrap complete');
   } catch (err) {
-    // Don't set bootstrapComplete so it can retry on next call
     logger.error(`[BUDDIES] Team channel bootstrap failed (will retry on next startup): ${err}`);
+  } finally {
+    bootstrapInProgress = false;
   }
 }

@@ -3,9 +3,15 @@ import type { TabId } from '../../types';
 import TopNav from './TopNav';
 import Sidebar from './Sidebar';
 import ChatRoom from '../chat/ChatRoom';
+import PixelOffice from '../office/PixelOffice';
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabId>('chat');
+
+  const handleAgentClick = (name: string) => {
+    // Switch to chat room and could pre-fill @mention
+    setActiveTab('chat');
+  };
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -16,7 +22,7 @@ export default function Dashboard() {
 
         <main className="flex-1 overflow-hidden">
           {activeTab === 'chat' && <ChatRoom />}
-          {activeTab === 'office' && <ComingSoon label="HQ" sub="PIXEL OFFICE MODULE" />}
+          {activeTab === 'office' && <PixelOffice onAgentClick={handleAgentClick} />}
           {activeTab === 'tasks' && <ComingSoon label="MISSIONS" sub="TASK BOARD MODULE" />}
           {activeTab === 'activity' && <ComingSoon label="INTEL" sub="ACTIVITY FEED MODULE" />}
         </main>
