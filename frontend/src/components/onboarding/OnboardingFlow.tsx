@@ -5,10 +5,10 @@ import StepApiConfig from './StepApiConfig';
 import StepPreferences from './StepPreferences';
 
 const STEPS = [
-  { label: 'SKILL PROFILE', desc: 'Tell us about yourself' },
-  { label: 'NAME YOUR TEAM', desc: 'Customize your agents' },
-  { label: 'API CONFIG', desc: 'Connect your LLM provider' },
-  { label: 'PREFERENCES', desc: 'Set your work style' },
+  { label: 'SKILL PROFILE', desc: 'Tell us about yourself', color: '#E41937' },
+  { label: 'NAME YOUR TEAM', desc: 'Customize your agents', color: '#F9D616' },
+  { label: 'API CONFIG', desc: 'Connect your LLM provider', color: '#2BB6B3' },
+  { label: 'PREFERENCES', desc: 'Set your work style', color: '#a855f7' },
 ];
 
 export default function OnboardingFlow() {
@@ -35,15 +35,15 @@ export default function OnboardingFlow() {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center p-4" style={{ backgroundColor: '#2BB6B3', backgroundImage: 'radial-gradient(#0A0A0A 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
-      <div className="bg-[--color-paper] border-4 border-[--color-ink] shadow-[8px_8px_0px_var(--color-ink)] w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div className="border-4 border-[--color-ink] shadow-[8px_8px_0px_var(--color-ink)] w-full max-w-lg max-h-[90vh] flex flex-col" style={{ backgroundColor: '#F9D616' }}>
         <div className="tape tape-tl" />
 
         {/* Header */}
-        <div className="bg-[--color-ink] text-[--color-paper] px-4 py-3 border-b-4 border-[--color-ink]">
+        <div className="px-4 py-3 border-b-4 border-[--color-ink]" style={{ backgroundColor: '#0A0A0A' }}>
           <h1 className="font-display text-2xl tracking-wider" style={{ color: '#F9D616' }}>
             BUDDIES
           </h1>
-          <p className="font-mono text-xs text-[--color-paper]/50 mt-0.5">
+          <p className="font-mono text-xs mt-0.5" style={{ color: 'rgba(242,244,243,0.5)' }}>
             // YOUR AI DEV TEAM. ALWAYS GOT YOUR BACK.
           </p>
         </div>
@@ -59,12 +59,12 @@ export default function OnboardingFlow() {
             </span>
           </div>
           <div className="flex gap-1">
-            {STEPS.map((_, i) => (
+            {STEPS.map((s, i) => (
               <div
                 key={i}
-                className="h-1.5 flex-1 border border-[--color-ink]"
+                className="h-2 flex-1 border-2 border-[--color-ink]"
                 style={{
-                  backgroundColor: i <= step ? '#0a0a0a' : 'transparent',
+                  backgroundColor: i <= step ? s.color : 'transparent',
                 }}
               />
             ))}
@@ -93,8 +93,11 @@ export default function OnboardingFlow() {
           <button
             onClick={handleNext}
             disabled={!canProceed()}
-            className="flex-1 py-2 font-display text-sm uppercase border-2 border-[--color-ink] shadow-[3px_3px_0px_var(--color-ink)] hover:shadow-[1px_1px_0px_var(--color-ink)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{ backgroundColor: step === totalSteps - 1 ? '#E41937' : '#F9D616', color: '#0a0a0a' }}
+            className="flex-1 py-2.5 font-display text-base uppercase border-2 border-[--color-ink] shadow-[3px_3px_0px_var(--color-ink)] hover:shadow-[1px_1px_0px_var(--color-ink)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: '#0A0A0A',
+              color: '#F9D616',
+            }}
           >
             {step === totalSteps - 1 ? 'ENTER HQ' : 'NEXT'}
           </button>

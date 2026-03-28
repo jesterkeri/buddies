@@ -24,7 +24,7 @@ export default function StepTeamNames({ teamNames }: StepTeamNamesProps) {
       {AGENTS.map((agent) => (
         <div
           key={agent.key}
-          className="flex items-center gap-3 p-3 border-2 border-[--color-ink]"
+          className="flex items-center gap-3 p-3 border-2 border-[--color-ink] bg-white"
           style={{ borderLeftWidth: '6px', borderLeftColor: getAgentColor(agent.key) }}
         >
           <AgentAvatar name={agent.key} size="md" />
@@ -38,7 +38,7 @@ export default function StepTeamNames({ teamNames }: StepTeamNamesProps) {
               value={teamNames[agent.key as keyof TeamConfig]}
               onChange={(e) => updateTeamNames({ [agent.key]: e.target.value })}
               placeholder={agent.key}
-              className="w-full px-2 py-1 text-sm font-mono font-bold border-2 border-[--color-ink] focus:outline-none focus:shadow-[2px_2px_0px_var(--color-ink)]"
+              className="w-full px-2 py-1 text-sm font-mono font-bold border-2 border-[--color-ink] bg-white focus:outline-none focus:shadow-[2px_2px_0px_var(--color-ink)]"
             />
           </div>
         </div>
