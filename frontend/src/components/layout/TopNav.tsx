@@ -12,6 +12,7 @@ const tabs: { id: TabId; label: string; enabled: boolean }[] = [
   { id: 'office', label: 'HQ', enabled: true },
   { id: 'tasks', label: 'MISSIONS', enabled: true },
   { id: 'activity', label: 'INTEL', enabled: true },
+  { id: 'connect', label: 'CONNECT', enabled: true },
 ];
 
 function formatTimer(seconds: number): string {
@@ -38,7 +39,7 @@ export default function TopNav({ activeTab, onTabChange }: TopNavProps) {
   }, [session.active, session.startTime]);
 
   return (
-    <header className="bg-[--color-ink] border-b-4 border-[--color-ink] flex items-center px-4 py-2 gap-4">
+    <header className="flex items-center px-4 py-2 gap-4" style={{ backgroundColor: '#0A0A0A', borderBottom: '4px solid #0A0A0A' }}>
       <h1 className="font-display text-2xl text-[--color-yellow] tracking-wider" style={{ transform: 'rotate(-2deg)' }}>
         BUDDIES
       </h1>
@@ -50,13 +51,14 @@ export default function TopNav({ activeTab, onTabChange }: TopNavProps) {
             key={tab.id}
             onClick={() => tab.enabled && onTabChange(tab.id)}
             disabled={!tab.enabled}
-            className={`px-3 py-1 font-display text-sm tracking-wider border-2 transition-all ${
+            className="px-3 py-1 font-display text-sm tracking-wider border-2 transition-all"
+            style={
               activeTab === tab.id
-                ? 'bg-[--color-yellow] text-[--color-ink] border-[--color-ink] shadow-[3px_3px_0px_var(--color-paper)]'
+                ? { backgroundColor: '#F9D616', color: '#0A0A0A', borderColor: '#0A0A0A', boxShadow: '3px 3px 0px #F2F4F3' }
                 : tab.enabled
-                  ? 'bg-transparent text-[--color-paper] border-[--color-paper]/30 hover:bg-[--color-paper]/10 hover:border-[--color-paper]'
-                  : 'bg-transparent text-[--color-paper]/20 border-[--color-paper]/10 cursor-not-allowed'
-            }`}
+                  ? { backgroundColor: 'transparent', color: '#F2F4F3', borderColor: 'rgba(242,244,243,0.3)' }
+                  : { backgroundColor: 'transparent', color: 'rgba(242,244,243,0.2)', borderColor: 'rgba(242,244,243,0.1)', cursor: 'not-allowed' }
+            }
           >
             {tab.label}
           </button>

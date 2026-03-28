@@ -22,12 +22,10 @@
 }
 
 body {
-  background-color: var(--color-teal);
+  background-color: #1a1d27;
   font-family: 'Space Mono', monospace;
   color: var(--color-ink);
   min-height: 100vh;
-  background-image: radial-gradient(var(--color-ink) 1px, transparent 1px);
-  background-size: 20px 20px;
 }
 
 /* Comic panel base */

@@ -6,6 +6,7 @@ import ChatRoom from '../chat/ChatRoom';
 import PixelOffice from '../office/PixelOffice';
 import TaskBoard from '../tasks/TaskBoard';
 import ActivityFeed from '../activity/ActivityFeed';
+import SettingsPage from '../settings/SettingsPage';
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabId>('chat');
@@ -26,21 +27,8 @@ export default function Dashboard() {
           {activeTab === 'office' && <PixelOffice onAgentClick={handleAgentClick} />}
           {activeTab === 'tasks' && <TaskBoard />}
           {activeTab === 'activity' && <ActivityFeed />}
+          {activeTab === 'connect' && <SettingsPage />}
         </main>
-      </div>
-    </div>
-  );
-}
-
-function ComingSoon({ label, sub }: { label: string; sub: string }) {
-  return (
-    <div className="h-full panel flex items-center justify-center bg-[--color-slate]">
-      <div className="text-center">
-        <p className="font-display text-4xl text-[--color-paper]/20" style={{ transform: 'rotate(-3deg)' }}>
-          {label}
-        </p>
-        <p className="text-xs font-mono text-[--color-paper]/30 mt-2 tracking-wider">{sub}</p>
-        <p className="text-xs font-mono text-[--color-yellow]/50 mt-4">// COMING SOON</p>
       </div>
     </div>
   );
