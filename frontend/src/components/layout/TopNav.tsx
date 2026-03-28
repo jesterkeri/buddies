@@ -8,8 +8,8 @@ interface TopNavProps {
 const tabs: { id: TabId; label: string; enabled: boolean }[] = [
   { id: 'chat', label: 'COMMS', enabled: true },
   { id: 'office', label: 'HQ', enabled: true },
-  { id: 'tasks', label: 'MISSIONS', enabled: false },
-  { id: 'activity', label: 'INTEL', enabled: false },
+  { id: 'tasks', label: 'MISSIONS', enabled: true },
+  { id: 'activity', label: 'INTEL', enabled: true },
 ];
 
 export default function TopNav({ activeTab, onTabChange }: TopNavProps) {
