@@ -1,5 +1,6 @@
 import type { Plugin, Action } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
+import { fireTrigger } from '../../../shared/triggers.ts';
 
 const checkWellness: Action = {
   name: 'CHECK_WELLNESS',
@@ -16,6 +17,7 @@ const checkWellness: Action = {
       });
     }
 
+    fireTrigger('Beans', 'CHECK_WELLNESS');
     agentStateManager.setState('Beans', AgentStatus.IDLE);
     return { text: 'Wellness check done', success: true };
   },

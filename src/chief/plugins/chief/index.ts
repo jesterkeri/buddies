@@ -1,5 +1,6 @@
 import type { Plugin, Action } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
+import { fireTrigger } from '../../../shared/triggers.ts';
 
 const assignTask: Action = {
   name: 'ASSIGN_TASK',
@@ -42,7 +43,7 @@ const callMeeting: Action = {
       });
     }
 
-    agentStateManager.setState('Chief', AgentStatus.IDLE);
+    fireTrigger('Chief', 'CALL_MEETING');
     return { text: 'Meeting called', success: true };
   },
   examples: [

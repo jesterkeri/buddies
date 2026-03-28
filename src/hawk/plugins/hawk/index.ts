@@ -1,5 +1,6 @@
 import type { Plugin, Action } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
+import { fireTrigger } from '../../../shared/triggers.ts';
 
 const reviewCode: Action = {
   name: 'REVIEW_CODE',
@@ -16,6 +17,7 @@ const reviewCode: Action = {
       });
     }
 
+    fireTrigger('Hawk', 'REVIEW_CODE');
     agentStateManager.setState('Hawk', AgentStatus.IDLE);
     return { text: 'Code reviewed', success: true };
   },

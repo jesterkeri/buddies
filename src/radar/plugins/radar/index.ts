@@ -1,5 +1,6 @@
 import type { Plugin, Action } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
+import { fireTrigger } from '../../../shared/triggers.ts';
 
 const researchTopic: Action = {
   name: 'RESEARCH_TOPIC',
@@ -42,6 +43,7 @@ const checkDependencies: Action = {
       });
     }
 
+    fireTrigger('Radar', 'CHECK_DEPENDENCIES');
     agentStateManager.setState('Radar', AgentStatus.IDLE);
     return { text: 'Dependency check complete', success: true };
   },

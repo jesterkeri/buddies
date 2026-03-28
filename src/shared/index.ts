@@ -4,3 +4,4 @@ export type { AgentStateEntry } from './agent-state.ts';
 export { mentionProvider } from './mention-provider.ts';
 export { getShouldRespondTemplate } from './should-respond.ts';
 export { getTeamChannelId, bootstrapTeamChannel } from './team-channel.ts';
+export { fireTrigger, TRIGGERS } from './triggers.ts';

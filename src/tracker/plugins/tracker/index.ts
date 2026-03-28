@@ -1,5 +1,6 @@
 import type { Plugin, Action } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
+import { fireTrigger } from '../../../shared/triggers.ts';
 
 const scanOpportunities: Action = {
   name: 'SCAN_OPPORTUNITIES',
@@ -16,6 +17,7 @@ const scanOpportunities: Action = {
       });
     }
 
+    fireTrigger('Tracker', 'SCAN_OPPORTUNITIES');
     agentStateManager.setState('Tracker', AgentStatus.IDLE);
     return { text: 'Scan complete', success: true };
   },
