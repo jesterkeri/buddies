@@ -1,5 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Dashboard from './components/layout/Dashboard';
+import OnboardingFlow from './components/onboarding/OnboardingFlow';
+import { useOnboarding } from './components/onboarding/onboardingStore';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -10,10 +12,20 @@ const queryClient = new QueryClient({
   },
 });
 
+function AppContent() {
+  const { completed } = useOnboarding();
+
+  if (!completed) {
+    return <OnboardingFlow />;
+  }
+
+  return <Dashboard />;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Dashboard />
+      <AppContent />
     </QueryClientProvider>
   );
 }

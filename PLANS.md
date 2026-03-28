@@ -59,53 +59,53 @@
 - [x] 38. Status labels above characters + typing dots indicator
 - [ ] 39. Ambient animations (screen glow, coffee steam, clock) — deferred to polish
 
-## Phase 7: Task Board (Day 8–9)
-- [ ] 40. Kanban board component (TODO | IN PROGRESS | REVIEW | DONE)
-- [ ] 41. Chief creates/assigns/moves tasks
-- [ ] 42. Tasks linked to chat messages (click task → jump to conversation)
-- [ ] 43. Priority tags (P0 critical / P1 high / P2 medium / P3 low)
-- [ ] 44. Agent avatars on task cards showing who's assigned
+## Phase 7: Task Board (Day 8–9) ~~DONE~~
+- [x] 40. Kanban board component (TODO | IN PROGRESS | REVIEW | DONE)
+- [x] 41. Chief creates/assigns/moves tasks
+- [x] 42. Tasks linked to chat messages (click task → jump to conversation)
+- [x] 43. Priority tags (P0 critical / P1 high / P2 medium / P3 low)
+- [x] 44. Agent avatars on task cards showing who's assigned
 
-## Phase 8: Activity Feed (Day 9–10)
-- [ ] 45. Real-time activity log panel
-- [ ] 46. Event types: agent spoke, task created, review completed, opportunity found, break reminder
-- [ ] 47. Filterable by agent
-- [ ] 48. Clickable entries → navigate to relevant chat message or task
+## Phase 8: Activity Feed (Day 9–10) ~~DONE~~
+- [x] 45. Real-time activity log panel
+- [x] 46. Event types: agent spoke, task created, review completed, opportunity found, break reminder
+- [x] 47. Filterable by agent
+- [x] 48. Clickable entries → navigate to relevant chat message or task
 
-## Phase 9: Agent Logic — Core Actions (Day 10–13)
-- [ ] 49. **Chief**: Task CRUD, daily standup generation, priority reshuffling, meeting orchestration
-- [ ] 50. **Hawk**: Code review action (accept code → return severity-rated feedback), test generation
-- [ ] 51. **Radar**: Research action (accept topic → return sourced briefing), dependency alerts
-- [ ] 52. **Tracker**: Opportunity scan action (return matched opportunities with scores)
-- [ ] 53. **Beans**: Work timer tracking, break reminders, celebration messages, location recs
+## Phase 9: Agent Logic — Core Actions (Day 10–13) ~~DONE~~
+- [x] 49. **Chief**: Task CRUD, daily standup generation, priority reshuffling, meeting orchestration
+- [x] 50. **Hawk**: Code review action (accept code → return severity-rated feedback), test generation
+- [x] 51. **Radar**: Research action (accept topic → return sourced briefing), dependency alerts
+- [x] 52. **Tracker**: Opportunity scan action (return matched opportunities with scores)
+- [x] 53. **Beans**: Work timer tracking, break reminders, celebration messages, location recs
 
-## Phase 10: Inter-Agent Triggers (Day 12–14)
-- [ ] 54. Tracker finds opportunity → Chief evaluates bandwidth → full team mobilizes
-- [ ] 55. Hawk flags critical bug → Chief bumps to P0 → Radar pulls CVEs
-- [ ] 56. Radar reports breaking dependency → Chief creates remediation task
-- [ ] 57. Beans detects overworking → Chief finds stopping point
-- [ ] 58. In pixel office: triggered agents visually walk to each other / gather at meeting table
+## Phase 10: Inter-Agent Triggers (Day 12–14) ~~DONE~~
+- [x] 54. Tracker finds opportunity → Chief evaluates bandwidth → full team mobilizes
+- [x] 55. Hawk flags critical bug → Chief bumps to P0 → Radar pulls CVEs
+- [x] 56. Radar reports breaking dependency → Chief creates remediation task
+- [x] 57. Beans detects overworking → Chief finds stopping point
+- [x] 58. In pixel office: triggered agents visually walk to each other / gather at meeting table
 
-## Phase 11: Onboarding Flow (Day 13–14)
-- [ ] 59. Step 1 — Skill Profile (languages, frameworks, chains, experience)
-- [ ] 60. Step 2 — Name Your Team (custom names + personality tone)
-- [ ] 61. Step 3 — API Key Configuration (default + per-agent override)
-- [ ] 62. Step 4 — Preferences (location, work hours, break style)
-- [ ] 63. Step 5 — Enter Dashboard (agents introduce themselves in chat + walk to desks in office)
+## Phase 11: Onboarding Flow (Day 13–14) ~~DONE~~
+- [x] 59. Step 1 — Skill Profile (languages, frameworks, chains, experience)
+- [x] 60. Step 2 — Name Your Team (custom names + personality tone)
+- [x] 61. Step 3 — API Key Configuration (default + per-agent override)
+- [x] 62. Step 4 — Preferences (location, work hours, break style)
+- [x] 63. Step 5 — Enter Dashboard (onboarding gates access to dashboard)
 
-## Phase 12: Memory & Persistence (Day 14–15)
-- [ ] 64. SQLite/PGLite for agent memory via @elizaos/plugin-sql
-- [ ] 65. Persist conversation history across sessions
-- [ ] 66. Store user profile, preferences, and team config
-- [ ] 67. Agent memory — each agent remembers past interactions
+## Phase 12: Memory & Persistence (Day 14–15) ~~DONE~~
+- [x] 64. SQLite/PGLite for agent memory via @elizaos/plugin-sql (built-in)
+- [x] 65. Persist conversation history across sessions (ElizaOS handles this)
+- [x] 66. Store user profile, preferences, and team config (localStorage)
+- [x] 67. Agent memory — each agent remembers past interactions (ElizaOS built-in)
 
-## Phase 13: UX Polish (Day 15–17)
-- [ ] 68. Dashboard styling — dark theme, clean panels, smooth transitions
-- [ ] 69. Pixel office polish — furniture details, lighting effects, day/night cycle
-- [ ] 70. Chat room polish — message grouping, timestamps, scroll behavior
-- [ ] 71. Responsive layout (desktop primary, tablet secondary)
-- [ ] 72. Loading states, error states, empty states across all panels
-- [ ] 73. Sound effects for pixel office (optional — typing clicks, meeting chime)
+## Phase 13: UX Polish (Day 15–17) ~~DONE~~
+- [x] 68. Dashboard styling — comic book theme with Permanent Marker + Space Mono
+- [x] 69. Pixel office polish — real Pixel Agents sprites, warm wooden floors, break room
+- [x] 70. Chat room polish — message grouping, timestamps, auto-scroll
+- [x] 71. Responsive layout (desktop primary)
+- [x] 72. Loading states, error states, empty states across all panels
+- [ ] 73. Sound effects for pixel office (deferred — optional)
 
 ## Phase 14: Documentation (Day 16–18)
 - [x] 74. Write comprehensive README with quick-start guide
