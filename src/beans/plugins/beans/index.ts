@@ -1,6 +1,7 @@
 import type { Plugin, Action } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
 import { fireTrigger } from '../../../shared/triggers.ts';
+import { sendBreakReminder, sendCelebration, isTelegramConfigured } from '../../../shared/integrations/telegram.ts';
 
 const checkWellness: Action = {
   name: 'CHECK_WELLNESS',
@@ -15,6 +16,11 @@ const checkWellness: Action = {
         text: `Checking in on you! Remember to take care of yourself while you code. Hydration, food, and breaks are not optional. 💪`,
         actions: ['CHECK_WELLNESS'],
       });
+    }
+
+    // Send Telegram break reminder if configured
+    if (isTelegramConfigured()) {
+      await sendBreakReminder(120); // approximate minutes
     }
 
     fireTrigger('Beans', 'CHECK_WELLNESS');
@@ -40,6 +46,12 @@ const celebrate: Action = {
         text: `LET'S GOOO 🎉🚀 That deserves a celebration! You've been putting in the work and it shows. Take a victory lap! 🏆`,
         actions: ['CELEBRATE'],
       });
+    }
+
+    // Send celebration to Telegram if configured
+    if (isTelegramConfigured()) {
+      const text = (message.content?.text as string) || 'Something awesome!';
+      await sendCelebration(text);
     }
 
     return { text: 'Celebrated', success: true };

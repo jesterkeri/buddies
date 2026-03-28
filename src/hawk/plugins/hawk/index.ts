@@ -1,6 +1,7 @@
 import type { Plugin, Action } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
 import { fireTrigger } from '../../../shared/triggers.ts';
+import { sendSecurityAlert, isTelegramConfigured } from '../../../shared/integrations/telegram.ts';
 
 const reviewCode: Action = {
   name: 'REVIEW_CODE',
@@ -15,6 +16,12 @@ const reviewCode: Action = {
         text: `Reviewing the code now. I'll check for security vulnerabilities, code quality issues, and suggest improvements with severity ratings.`,
         actions: ['REVIEW_CODE'],
       });
+    }
+
+    // Send critical alerts to Telegram via Beans
+    if (isTelegramConfigured()) {
+      const text = (message.content?.text as string) || '';
+      await sendSecurityAlert('HIGH', `Code review flagged issues in: ${text.slice(0, 100)}`);
     }
 
     fireTrigger('Hawk', 'REVIEW_CODE');

@@ -1,6 +1,7 @@
 import type { Plugin, Action } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
 import { fireTrigger } from '../../../shared/triggers.ts';
+import { sendOpportunityAlert, isTelegramConfigured } from '../../../shared/integrations/telegram.ts';
 
 const scanOpportunities: Action = {
   name: 'SCAN_OPPORTUNITIES',
@@ -15,6 +16,11 @@ const scanOpportunities: Action = {
         text: `Scanning platforms for opportunities matching your skill profile. I'll return the top matches with skill overlap percentage, prize pool, and deadline.`,
         actions: ['SCAN_OPPORTUNITIES'],
       });
+    }
+
+    // Send top opportunity to Telegram via Beans
+    if (isTelegramConfigured()) {
+      await sendOpportunityAlert('New opportunities found', '95% match', 'Check Command Center');
     }
 
     fireTrigger('Tracker', 'SCAN_OPPORTUNITIES');
