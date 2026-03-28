@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react';
 import type { TabId } from '../../types';
+import { useSession, startSession, endSession, getElapsedSeconds } from '../session/sessionStore';
 
 interface TopNavProps {
   activeTab: TabId;
@@ -12,7 +14,29 @@ const tabs: { id: TabId; label: string; enabled: boolean }[] = [
   { id: 'activity', label: 'INTEL', enabled: true },
 ];
 
+function formatTimer(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 export default function TopNav({ activeTab, onTabChange }: TopNavProps) {
+  const session = useSession();
+  const [elapsed, setElapsed] = useState(0);
+
+  // Update timer every second when session is active
+  useEffect(() => {
+    if (!session.active) {
+      setElapsed(0);
+      return;
+    }
+    const tick = () => setElapsed(getElapsedSeconds());
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [session.active, session.startTime]);
+
   return (
     <header className="bg-[--color-ink] border-b-4 border-[--color-ink] flex items-center px-4 py-2 gap-4">
       <h1 className="font-display text-2xl text-[--color-yellow] tracking-wider" style={{ transform: 'rotate(-2deg)' }}>
@@ -40,9 +64,36 @@ export default function TopNav({ activeTab, onTabChange }: TopNavProps) {
       </nav>
 
       <div className="ml-auto flex items-center gap-3">
-        <span className="badge bg-[--color-teal] text-[--color-ink] px-2 py-0.5 text-xs font-bold border-2 border-[--color-ink]" style={{ transform: 'rotate(-3deg)' }}>
-          5 AGENTS ONLINE
-        </span>
+        {/* Session timer */}
+        {session.active ? (
+          <div className="flex items-center gap-2">
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 border-2"
+              style={{ backgroundColor: '#F9D616', borderColor: '#0A0A0A', boxShadow: '2px 2px 0px #0A0A0A' }}
+            >
+              <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#0A0A0A' }} />
+              <span className="font-mono text-xs font-bold" style={{ color: '#0A0A0A' }}>
+                {formatTimer(elapsed)}
+              </span>
+            </div>
+            <button
+              onClick={endSession}
+              className="px-2.5 py-1 text-[10px] font-display uppercase border-2 transition-all hover:opacity-80"
+              style={{ backgroundColor: '#F2F4F3', borderColor: '#0A0A0A', color: '#0A0A0A' }}
+            >
+              END
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => startSession()}
+            className="px-3 py-1 text-[11px] font-display uppercase border-2 hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+            style={{ backgroundColor: '#F9D616', borderColor: '#0A0A0A', color: '#0A0A0A', boxShadow: '2px 2px 0px #0A0A0A' }}
+          >
+            START SESSION
+          </button>
+        )}
+
         <span className="text-[--color-red] text-xs font-mono">● LIVE</span>
       </div>
     </header>
