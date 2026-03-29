@@ -1,8 +1,75 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAgents, useAgentStates } from '../../api/hooks';
 import AgentAvatar from '../shared/AgentAvatar';
 import StatusBadge from '../shared/StatusBadge';
 import { useSession, getNextBreakIn, getBreakInterval, isBreakDue, takeBreak } from '../session/sessionStore';
+import { getOnboardingState, updateTeamNames } from '../onboarding/onboardingStore';
+
+const AGENT_ROLES: Record<string, string> = {
+  Chief: 'Team Lead',
+  Hawk: 'Code Reviewer',
+  Radar: 'Scout',
+  'Bounty Hunter': 'Bounty Hunter',
+  Buddy: 'Buddy',
+};
+
+const AGENT_SKILLS: Record<string, string[]> = {
+  Chief: ['Tasks', 'Priorities', 'Meetings'],
+  Hawk: ['Security', 'Reviews', 'Testing'],
+  Radar: ['Research', 'Docs', 'CVEs'],
+  'Bounty Hunter': ['Bounties', 'Jobs', 'Grants'],
+  Buddy: ['Breaks', 'Food', 'Morale'],
+};
+
+function EditableName({ agentKey }: { agentKey: string }) {
+  const [editing, setEditing] = useState(false);
+  const onboarding = getOnboardingState();
+  const customName = onboarding.teamNames[agentKey as keyof typeof onboarding.teamNames] || agentKey;
+  const [value, setValue] = useState(customName);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const save = () => {
+    const trimmed = value.trim() || agentKey;
+    updateTeamNames({ [agentKey]: trimmed });
+    setValue(trimmed);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') { setValue(customName); setEditing(false); }
+        }}
+        className="text-sm font-bold font-mono uppercase tracking-wider bg-transparent border-b-2 text-white outline-none w-24"
+        style={{ borderColor: '#F9D616' }}
+      />
+    );
+  }
+
+  return (
+    <span
+      onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+      className="text-sm font-bold text-white font-mono uppercase tracking-wider cursor-text hover:underline"
+      style={{ textDecorationColor: '#F9D616' }}
+      title="Click to rename"
+    >
+      {customName}
+    </span>
+  );
+}
 
 export default function Sidebar() {
   const { data: agents } = useAgents();
@@ -14,7 +81,6 @@ export default function Sidebar() {
   const stateMap = new Map<string, { status: string; currentTask?: string }>();
   states?.forEach((s) => stateMap.set(s.agentName, { status: s.status, currentTask: s.currentTask }));
 
-  // Update break countdown every second
   useEffect(() => {
     if (!session.active) return;
     const tick = () => {
@@ -33,111 +99,150 @@ export default function Sidebar() {
   };
 
   const breakInterval = getBreakInterval();
+  const activeAgents = agents?.length || 0;
+  const workingAgents = states?.filter((s) => s.status !== 'IDLE').length || 0;
 
   return (
-    <aside className="w-64 panel bg-[--color-slate] border-r-4 border-[--color-ink] shadow-none rounded-none flex flex-col">
+    <aside className="w-64 panel shadow-none rounded-none flex flex-col" style={{ backgroundColor: '#232A38', borderRight: '4px solid #0A0A0A' }}>
       <div className="tape tape-tl" />
       <div className="panel-header">
         <span>ACTIVE_SQUAD</span>
-        <span className="badge">5 ONLINE</span>
+        <span className="badge">{activeAgents} ONLINE</span>
       </div>
 
-      {/* Break timer (when session active) */}
+      {/* Quick stats */}
+      <div className="grid grid-cols-2 gap-0 border-b-2" style={{ borderColor: 'rgba(242,244,243,0.1)' }}>
+        <div className="px-3 py-2 text-center border-r" style={{ borderColor: 'rgba(242,244,243,0.1)' }}>
+          <p className="font-display text-lg text-white">{activeAgents}</p>
+          <p className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.3)' }}>AGENTS</p>
+        </div>
+        <div className="px-3 py-2 text-center">
+          <p className="font-display text-lg" style={{ color: workingAgents > 0 ? '#F9D616' : '#22c55e' }}>{workingAgents}</p>
+          <p className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.3)' }}>WORKING</p>
+        </div>
+      </div>
+
+      {/* Break timer */}
       {session.active && (
-        <div className={`px-3 py-2.5 border-b-2 ${breakDue ? 'bg-[--color-red]/20 border-[--color-red]/30' : 'bg-[--color-teal]/10 border-[--color-paper]/10'}`}>
+        <div className="px-3 py-2.5 border-b-2" style={{ borderColor: 'rgba(242,244,243,0.1)', backgroundColor: breakDue ? 'rgba(228,25,55,0.15)' : 'rgba(43,182,179,0.08)' }}>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[9px] font-mono font-bold text-[--color-paper]/50 uppercase">
-              {breakDue ? '⚠ BREAK TIME' : 'NEXT BREAK'}
+            <span className="text-[9px] font-mono font-bold uppercase" style={{ color: breakDue ? '#E41937' : 'rgba(242,244,243,0.4)' }}>
+              {breakDue ? 'BREAK TIME' : 'NEXT BREAK'}
             </span>
-            <span className="text-[8px] font-mono text-[--color-paper]/30 uppercase">
+            <span className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.25)' }}>
               {session.breakStyle}
             </span>
           </div>
-
           {breakDue ? (
-            <div>
-              <p className="text-xs font-display text-[--color-red] mb-1.5">
-                BEANS SAYS: TIME TO REST!
-              </p>
-              <div className="flex gap-1.5">
-                <button
-                  onClick={takeBreak}
-                  className="flex-1 py-1.5 text-[9px] font-display uppercase border-2 border-[--color-ink] bg-[--color-teal] text-[--color-ink] shadow-[2px_2px_0px_var(--color-ink)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
-                >
-                  TAKE BREAK
-                </button>
-                <button
-                  onClick={takeBreak}
-                  className="flex-1 py-1.5 text-[9px] font-display uppercase border-2 border-[--color-ink] bg-[--color-yellow] text-[--color-ink] shadow-[2px_2px_0px_var(--color-ink)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
-                >
-                  KEEP GOING
-                </button>
-              </div>
-              <p className="text-[8px] font-mono text-[--color-paper]/30 mt-1">
-                Beans will check on you again soon
-              </p>
+            <div className="flex gap-1.5">
+              <button
+                onClick={takeBreak}
+                className="flex-1 py-1 text-[9px] font-display uppercase border-2"
+                style={{ borderColor: '#0A0A0A', backgroundColor: '#2BB6B3', color: '#0A0A0A' }}
+              >
+                BREAK
+              </button>
+              <button
+                onClick={takeBreak}
+                className="flex-1 py-1 text-[9px] font-display uppercase border-2"
+                style={{ borderColor: '#0A0A0A', backgroundColor: '#F9D616', color: '#0A0A0A' }}
+              >
+                SKIP
+              </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-mono font-bold text-[--color-teal]">
-                {formatBreakTime(nextBreak)}
+            <p className="text-base font-mono font-bold" style={{ color: '#2BB6B3' }}>
+              {formatBreakTime(nextBreak)}
+              <span className="text-[8px] ml-1" style={{ color: 'rgba(242,244,243,0.25)' }}>
+                ({breakInterval.work}m / {breakInterval.rest}m)
               </span>
-              <span className="text-[9px] font-mono text-[--color-paper]/30">
-                ({breakInterval.work}min work / {breakInterval.rest}min rest)
-              </span>
-            </div>
-          )}
-
-          {session.totalBreaksTaken > 0 && (
-            <p className="text-[8px] font-mono text-[--color-paper]/25 mt-1">
-              Breaks taken: {session.totalBreaksTaken}
             </p>
           )}
         </div>
       )}
 
+      {/* Agent list */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         {agents?.map((agent) => {
           const state = stateMap.get(agent.name);
+          const role = AGENT_ROLES[agent.name] || '';
+          const skills = AGENT_SKILLS[agent.name] || [];
+
           return (
             <div
               key={agent.id}
-              className="flex items-center gap-3 px-3 py-2.5 border-2 border-transparent hover:border-[--color-paper]/20 hover:bg-[--color-paper]/5 transition-all cursor-pointer"
+              className="px-3 py-2.5 border-2 transition-all cursor-pointer"
+              style={{
+                borderColor: 'rgba(242,244,243,0.08)',
+                backgroundColor: state?.status !== 'IDLE' ? 'rgba(242,244,243,0.03)' : 'transparent',
+              }}
             >
-              <AgentAvatar name={agent.name} size="sm" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-[--color-paper] font-mono uppercase tracking-wider truncate">
-                    {agent.name}
-                  </span>
-                </div>
-                <div className="mt-1">
-                  <StatusBadge status={state?.status || 'IDLE'} />
-                </div>
-                {state?.currentTask && (
-                  <p className="text-[9px] text-[--color-paper]/50 font-mono truncate mt-0.5">
-                    &gt; {state.currentTask}
+              <div className="flex items-center gap-2.5">
+                <AgentAvatar name={agent.name} size="sm" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <EditableName agentKey={agent.name} />
+                    <StatusBadge status={state?.status || 'IDLE'} />
+                  </div>
+                  <p className="text-[9px] font-mono" style={{ color: 'rgba(242,244,243,0.35)' }}>
+                    {role}
                   </p>
-                )}
+                </div>
               </div>
+
+              {/* Skills */}
+              <div className="flex flex-wrap gap-1 mt-1.5 ml-10">
+                {skills.map((skill) => (
+                  <span
+                    key={skill}
+                    className="text-[9px] font-mono font-bold px-2 py-0.5 border"
+                    style={{ borderColor: 'rgba(242,244,243,0.15)', color: 'rgba(242,244,243,0.4)' }}
+                  >
+                    {skill}
+                  </span>
+                ))}
+              </div>
+
+              {/* Current task */}
+              {state?.currentTask && (
+                <p className="text-[9px] font-mono mt-1 ml-10" style={{ color: '#F9D616' }}>
+                  &gt; {state.currentTask}
+                </p>
+              )}
             </div>
           );
         })}
 
         {!agents?.length && (
-          <div className="px-3 py-8 text-center text-sm text-[--color-paper]/40 font-mono">
+          <div className="px-3 py-8 text-center text-sm font-mono" style={{ color: 'rgba(242,244,243,0.3)' }}>
             // SCANNING FOR AGENTS...
           </div>
         )}
       </div>
 
-      {/* Barcode decoration */}
-      <div className="flex gap-[2px] h-6 items-end px-3 py-2 border-t-2 border-[--color-paper]/10">
+      {/* Bottom info */}
+      <div className="px-3 py-2 border-t-2 space-y-1" style={{ borderColor: 'rgba(242,244,243,0.1)' }}>
+        <div className="flex items-center justify-between">
+          <span className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.25)' }}>MODEL</span>
+          <span className="text-[8px] font-mono" style={{ color: '#2BB6B3' }}>qwen3:8b</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.25)' }}>RUNTIME</span>
+          <span className="text-[8px] font-mono" style={{ color: '#22c55e' }}>ELIZAOS v1.7.2</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.25)' }}>RELAY</span>
+          <span className="text-[8px] font-mono" style={{ color: '#a855f7' }}>BUDDY</span>
+        </div>
+      </div>
+
+      {/* Barcode */}
+      <div className="flex gap-[2px] h-5 items-end px-3 py-1.5 border-t" style={{ borderColor: 'rgba(242,244,243,0.05)' }}>
         {Array.from({ length: 20 }).map((_, i) => (
           <div
             key={i}
-            className="bg-[--color-paper]/30"
             style={{
+              backgroundColor: 'rgba(242,244,243,0.2)',
               width: i % 3 === 0 ? '1px' : i % 5 === 0 ? '6px' : i % 2 === 0 ? '2px' : '4px',
               height: '100%',
             }}

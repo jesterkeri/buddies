@@ -1,6 +1,6 @@
 import type { Provider, IAgentRuntime, Memory, State } from '@elizaos/core';
 
-const AGENT_NAMES = ['Chief', 'Hawk', 'Radar', 'Tracker', 'Beans'];
+const AGENT_NAMES = ['Chief', 'Hawk', 'Radar', 'Bounty Hunter', 'Buddy'];
 const TEAM_KEYWORDS = /(?:hey\s+)?team\b|everyone\b|all\s+agents\b|all\s+of\s+you\b/i;
 
 export const mentionProvider: Provider = {

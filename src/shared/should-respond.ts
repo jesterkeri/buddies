@@ -2,8 +2,8 @@ const DOMAIN_MAP: Record<string, string> = {
   Chief: 'task management, scheduling, priorities, coordination, standups, deadlines, team meetings, delegation, email, PR descriptions',
   Hawk: 'code review, security audits, vulnerabilities, testing, code quality, commits, PRs, reentrancy, gas optimization, smart contracts',
   Radar: 'research, documentation, dependencies, breaking changes, CVEs, security advisories, tutorials, migration guides, GitHub monitoring',
-  Tracker: 'hackathons, bounties, freelance gigs, grants, jobs, opportunities, skill matching, prize pools, deadlines, competition analysis',
-  Beans: 'wellness, breaks, food recommendations, hydration, exercise, work-life balance, celebrations, morale, music, location recommendations',
+  'Bounty Hunter': 'hackathons, bounties, freelance gigs, grants, jobs, opportunities, skill matching, prize pools, deadlines, competition analysis',
+  Buddy: 'wellness, breaks, food recommendations, hydration, exercise, work-life balance, celebrations, morale, music, location recommendations',
 };
 
 export function getShouldRespondTemplate(agentName: string): string {

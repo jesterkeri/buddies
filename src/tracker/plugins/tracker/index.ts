@@ -9,7 +9,7 @@ const scanOpportunities: Action = {
   description: 'Scan for hackathons, bug bounties, freelance gigs, grants, and job opportunities. Use when the user asks about opportunities or wants to find work.',
   validate: async () => true,
   handler: async (runtime, message, state, options, callback) => {
-    agentStateManager.setState('Tracker', AgentStatus.SCANNING, 'Scanning opportunities');
+    agentStateManager.setState('Bounty Hunter', AgentStatus.SCANNING, 'Scanning opportunities');
 
     if (callback) {
       await callback({
@@ -18,19 +18,19 @@ const scanOpportunities: Action = {
       });
     }
 
-    // Send top opportunity to Telegram via Beans
+    // Send top opportunity to Telegram via Buddy
     if (isTelegramConfigured()) {
       await sendOpportunityAlert('New opportunities found', '95% match', 'Check Command Center');
     }
 
-    fireTrigger('Tracker', 'SCAN_OPPORTUNITIES');
-    agentStateManager.setState('Tracker', AgentStatus.IDLE);
+    fireTrigger('Bounty Hunter', 'SCAN_OPPORTUNITIES');
+    agentStateManager.setState('Bounty Hunter', AgentStatus.IDLE);
     return { text: 'Scan complete', success: true };
   },
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Any good opportunities right now?' } },
-      { name: 'Tracker', content: { text: '3 hits today: 1) Nosana ElizaOS Challenge — $3K pool, 20 days left, 95% skill match. 2) Immunefi audit bounty — DeFi lending, $5K, 90% match. 3) Contract role — Solana DeFi, $150/hr, 80% match.', actions: ['SCAN_OPPORTUNITIES'] } },
+      { name: 'Bounty Hunter', content: { text: '3 hits today: 1) Nosana ElizaOS Challenge — $3K pool, 20 days left, 95% skill match. 2) Immunefi audit bounty — DeFi lending, $5K, 90% match. 3) Contract role — Solana DeFi, $150/hr, 80% match.', actions: ['SCAN_OPPORTUNITIES'] } },
     ],
   ],
 };
@@ -41,7 +41,7 @@ const evaluateOpportunity: Action = {
   description: 'Evaluate a specific opportunity in detail — skill match, time commitment, competition level, and recommendation.',
   validate: async () => true,
   handler: async (runtime, message, state, options, callback) => {
-    agentStateManager.setState('Tracker', AgentStatus.WORKING, 'Evaluating opportunity');
+    agentStateManager.setState('Bounty Hunter', AgentStatus.WORKING, 'Evaluating opportunity');
 
     if (callback) {
       await callback({
@@ -50,13 +50,13 @@ const evaluateOpportunity: Action = {
       });
     }
 
-    agentStateManager.setState('Tracker', AgentStatus.IDLE);
+    agentStateManager.setState('Bounty Hunter', AgentStatus.IDLE);
     return { text: 'Evaluation complete', success: true };
   },
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Tell me more about the Nosana challenge' } },
-      { name: 'Tracker', content: { text: '$3K prize pool, deadline April 14. Judged on: technical (25%), Nosana integration (25%), UX (25%), creativity (15%), docs (10%). Your product design background gives you an edge on UX. Strongly recommended.', actions: ['EVALUATE_OPPORTUNITY'] } },
+      { name: 'Bounty Hunter', content: { text: '$3K prize pool, deadline April 14. Judged on: technical (25%), Nosana integration (25%), UX (25%), creativity (15%), docs (10%). Your product design background gives you an edge on UX. Strongly recommended.', actions: ['EVALUATE_OPPORTUNITY'] } },
     ],
   ],
 };

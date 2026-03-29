@@ -18,7 +18,7 @@ const reviewCode: Action = {
       });
     }
 
-    // Send critical alerts to Telegram via Beans
+    // Send critical alerts to Telegram via Buddy
     if (isTelegramConfigured()) {
       const text = (message.content?.text as string) || '';
       await sendSecurityAlert('HIGH', `Code review flagged issues in: ${text.slice(0, 100)}`);

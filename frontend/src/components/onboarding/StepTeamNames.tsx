@@ -6,8 +6,8 @@ const AGENTS = [
   { key: 'Chief', role: 'TEAM LEAD', desc: 'Coordinates the squad, manages tasks' },
   { key: 'Hawk', role: 'CODE REVIEWER', desc: 'Security audits, code quality' },
   { key: 'Radar', role: 'SCOUT', desc: 'Research, docs, dependency tracking' },
-  { key: 'Tracker', role: 'BOUNTY HUNTER', desc: 'Finds hackathons, bounties, jobs' },
-  { key: 'Beans', role: 'BUDDY', desc: 'Wellness, breaks, morale, food recs' },
+  { key: 'Bounty Hunter', role: 'BOUNTY HUNTER', desc: 'Finds hackathons, bounties, jobs' },
+  { key: 'Buddy', role: 'BUDDY', desc: 'Wellness, breaks, morale, food recs' },
 ] as const;
 
 interface StepTeamNamesProps {

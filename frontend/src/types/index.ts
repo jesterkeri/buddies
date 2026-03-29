@@ -2,11 +2,11 @@ export const AGENT_COLORS: Record<string, string> = {
   Chief: '#3b82f6',
   Hawk: '#E41937',
   Radar: '#2BB6B3',
-  Tracker: '#F9D616',
-  Beans: '#a855f7',
+  'Bounty Hunter': '#F9D616',
+  Buddy: '#a855f7',
 };
 
-export const AGENT_NAMES = ['Chief', 'Hawk', 'Radar', 'Tracker', 'Beans'] as const;
+export const AGENT_NAMES = ['Chief', 'Hawk', 'Radar', 'Bounty Hunter', 'Buddy'] as const;
 
 export type AgentName = (typeof AGENT_NAMES)[number];
 

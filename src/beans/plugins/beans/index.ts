@@ -9,7 +9,7 @@ const checkWellness: Action = {
   description: 'Check on the user wellness, remind them to take breaks, eat, hydrate, or stretch. Use when the user has been working for a while or mentions being tired.',
   validate: async () => true,
   handler: async (runtime, message, state, options, callback) => {
-    agentStateManager.setState('Beans', AgentStatus.WORKING, 'Wellness check');
+    agentStateManager.setState('Buddy', AgentStatus.WORKING, 'Wellness check');
 
     if (callback) {
       await callback({
@@ -23,14 +23,14 @@ const checkWellness: Action = {
       await sendBreakReminder(120); // approximate minutes
     }
 
-    fireTrigger('Beans', 'CHECK_WELLNESS');
-    agentStateManager.setState('Beans', AgentStatus.IDLE);
+    fireTrigger('Buddy', 'CHECK_WELLNESS');
+    agentStateManager.setState('Buddy', AgentStatus.IDLE);
     return { text: 'Wellness check done', success: true };
   },
   examples: [
     [
       { name: '{{user1}}', content: { text: 'I have been coding for hours' } },
-      { name: 'Beans', content: { text: "Hey, you've been at it for 4 hours straight 😅 There's a solid ramen spot 5 minutes from you — 4.7 stars, open till 10pm. Go eat! 🍜", actions: ['CHECK_WELLNESS'] } },
+      { name: 'Buddy', content: { text: "Hey, you've been at it for 4 hours straight 😅 There's a solid ramen spot 5 minutes from you — 4.7 stars, open till 10pm. Go eat! 🍜", actions: ['CHECK_WELLNESS'] } },
     ],
   ],
 };
@@ -59,7 +59,7 @@ const celebrate: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Just shipped the staking contract!' } },
-      { name: 'Beans', content: { text: "LET'S GOOO 🎉🚀 That's a big one! You've been grinding on this all week and it's finally live. Take a victory lap! 🏆", actions: ['CELEBRATE'] } },
+      { name: 'Buddy', content: { text: "LET'S GOOO 🎉🚀 That's a big one! You've been grinding on this all week and it's finally live. Take a victory lap! 🏆", actions: ['CELEBRATE'] } },
     ],
   ],
 };
@@ -82,7 +82,7 @@ const recommendFood: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'I am hungry' } },
-      { name: 'Beans', content: { text: "Ooh, food time! 🍜 There's a great Thai place 3 minutes away — 4.8 stars, affordable, and they do quick takeout. Or if you want to sit down, the cafe on the corner has solid sandwiches and wifi. Go eat!", actions: ['RECOMMEND_FOOD'] } },
+      { name: 'Buddy', content: { text: "Ooh, food time! 🍜 There's a great Thai place 3 minutes away — 4.8 stars, affordable, and they do quick takeout. Or if you want to sit down, the cafe on the corner has solid sandwiches and wifi. Go eat!", actions: ['RECOMMEND_FOOD'] } },
     ],
   ],
 };

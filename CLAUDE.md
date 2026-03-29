@@ -8,7 +8,7 @@ Multi-agent productivity platform for developers. 5 specialized AI agents share 
 ## Tech Stack
 - **Framework**: ElizaOS v2 (TypeScript)
 - **Runtime**: Bun
-- **LLM**: Qwen3.5-27B via Nosana (default), per-agent API key overrides supported
+- **LLM**: qwen3-nothink via Ollama locally (@elizaos/plugin-ollama), Qwen3.5-27B via Nosana for deployment (@elizaos/plugin-openai)
 - **Database**: SQLite / PGLite (via @elizaos/plugin-sql)
 - **Deployment**: Docker on Nosana GPU network
 - **Frontend**: ElizaOS built-in web UI (custom React + Tailwind chat room planned)
@@ -19,8 +19,8 @@ Multi-agent productivity platform for developers. 5 specialized AI agents share 
 | Team Lead | Chief | Task management, coordination, email, scheduling | chief-plugin |
 | Code Reviewer | Hawk | Code review, security audits, testing | hawk-plugin |
 | Scout | Radar | Research, monitoring, documentation | radar-plugin |
-| Bounty Hunter | Tracker | Opportunity scanning, skill matching | tracker-plugin |
-| Buddy | Beans | Wellness, breaks, location recs, morale | beans-plugin |
+| Bounty Hunter | Bounty Hunter | Opportunity scanning, skill matching | tracker-plugin |
+| Buddy | Buddy | Wellness, breaks, location recs, morale | beans-plugin |
 
 ## Project Structure
 ```
@@ -52,7 +52,7 @@ docker compose up --build         # Containerized run
 ## Architecture Decisions
 - **Single container, multi-agent**: All 5 agents run in one ElizaOS process. Inter-agent messaging via shared rooms — no network overhead.
 - **Plugin-per-agent**: Each agent has its own plugin directory. Keeps responsibilities isolated and independently testable.
-- **Per-agent model config**: Each character reads `{AGENT_NAME}_OPENAI_API_KEY` env vars with fallback to global `OPENAI_API_KEY`. Allows different LLM providers per agent.
+- **Per-agent model config**: Each character reads `{AGENT_NAME}_OLLAMA_API_ENDPOINT` env vars with fallback to global `OLLAMA_API_ENDPOINT`. Allows different LLM providers per agent.
 - **the-org pattern**: Project structure follows elizaOS/the-org (official multi-agent reference).
 
 ## Key Files
@@ -63,18 +63,20 @@ docker compose up --build         # Containerized run
 - `PLANS.md` — Step-by-step build plan (83 steps, 16 phases)
 
 ## Important Rules
-- Beans is the ONLY agent that uses emojis
+- Buddy is the ONLY agent that uses emojis
 - All other agents explicitly do NOT use emojis
 - Each agent has a distinct personality — preserve these differences
 - Hawk uses severity tags: CRITICAL / HIGH / MEDIUM / LOW
-- Tracker leads with match % and money
+- Bounty Hunter leads with match % and money
 - Chief speaks in numbered priorities and action items
 - Radar always cites sources with links
 
 ## Environment Variables
 See `.env.example` for full list. Key vars:
-- `OPENAI_API_KEY` / `OPENAI_API_URL` — default LLM for all agents
-- `{AGENT}_OPENAI_API_KEY` / `{AGENT}_OPENAI_API_URL` — per-agent overrides
+- `OLLAMA_API_ENDPOINT` — Ollama API base URL (default: http://127.0.0.1:11434/api)
+- `OLLAMA_SMALL_MODEL` / `OLLAMA_LARGE_MODEL` — model names for Ollama
+- `OLLAMA_EMBEDDING_MODEL` — embedding model (default: nomic-embed-text:latest)
+- `{AGENT}_OLLAMA_API_ENDPOINT` / `{AGENT}_OLLAMA_SMALL_MODEL` — per-agent overrides
 - `SERVER_PORT` — default 3000
 
 ## Testing

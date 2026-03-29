@@ -49,7 +49,7 @@ const callMeeting: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Can we do a standup?' } },
-      { name: 'Chief', content: { text: 'Morning standup. Let me go around the room. Hawk, Radar, Tracker, Beans — status updates please.', actions: ['CALL_MEETING'] } },
+      { name: 'Chief', content: { text: 'Morning standup. Let me go around the room. Hawk, Radar, Bounty Hunter, Buddy — status updates please.', actions: ['CALL_MEETING'] } },
     ],
   ],
 };

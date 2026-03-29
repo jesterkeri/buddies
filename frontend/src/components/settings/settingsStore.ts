@@ -24,8 +24,24 @@ export interface IntegrationConfig {
   };
 }
 
+export interface AgentModelConfig {
+  provider: string;
+  apiKey: string;
+  apiUrl: string;
+  model: string;
+}
+
+export interface AiConfig {
+  defaultProvider: string;
+  defaultApiKey: string;
+  defaultApiUrl: string;
+  defaultModel: string;
+  perAgent: Record<string, AgentModelConfig>;
+}
+
 export interface SettingsState {
   integrations: IntegrationConfig;
+  aiConfig: AiConfig;
   notifications: {
     breakReminders: boolean;
     securityAlerts: boolean;
@@ -44,6 +60,13 @@ function defaultState(): SettingsState {
       whatsapp: { enabled: false, phoneNumber: '', connected: false },
       email: { enabled: false, address: '', connected: false },
       discord: { enabled: false, webhookUrl: '', connected: false },
+    },
+    aiConfig: {
+      defaultProvider: 'ollama',
+      defaultApiKey: '',
+      defaultApiUrl: 'http://127.0.0.1:11434/v1',
+      defaultModel: 'qwen2.5:7b',
+      perAgent: {},
     },
     notifications: {
       breakReminders: true,
@@ -95,6 +118,31 @@ export function updateIntegration(
     integrations: {
       ...state.integrations,
       [platform]: { ...state.integrations[platform], ...update },
+    },
+  };
+  notify();
+}
+
+export function updateAiConfig(update: Partial<AiConfig>): void {
+  state = {
+    ...state,
+    aiConfig: { ...state.aiConfig, ...update },
+  };
+  notify();
+}
+
+export function updateAgentModel(agentName: string, update: Partial<AgentModelConfig>): void {
+  const current = state.aiConfig.perAgent[agentName] || {
+    provider: '', apiKey: '', apiUrl: '', model: '',
+  };
+  state = {
+    ...state,
+    aiConfig: {
+      ...state.aiConfig,
+      perAgent: {
+        ...state.aiConfig.perAgent,
+        [agentName]: { ...current, ...update },
+      },
     },
   };
   notify();

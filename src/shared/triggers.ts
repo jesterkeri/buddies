@@ -19,10 +19,10 @@ export interface Trigger {
 // Defined trigger chains
 export const TRIGGERS: Trigger[] = [
   {
-    sourceAgent: 'Tracker',
+    sourceAgent: 'Bounty Hunter',
     sourceAction: 'SCAN_OPPORTUNITIES',
     targetAgents: ['Chief'],
-    description: 'Chief evaluates bandwidth when Tracker finds opportunities',
+    description: 'Chief evaluates bandwidth when Bounty Hunter finds opportunities',
   },
   {
     sourceAgent: 'Hawk',
@@ -37,15 +37,15 @@ export const TRIGGERS: Trigger[] = [
     description: 'Chief creates remediation task and Hawk scans affected files',
   },
   {
-    sourceAgent: 'Beans',
+    sourceAgent: 'Buddy',
     sourceAction: 'CHECK_WELLNESS',
     targetAgents: ['Chief'],
-    description: 'Chief finds natural stopping point when Beans flags overworking',
+    description: 'Chief finds natural stopping point when Buddy flags overworking',
   },
   {
     sourceAgent: 'Chief',
     sourceAction: 'CALL_MEETING',
-    targetAgents: ['Hawk', 'Radar', 'Tracker', 'Beans'],
+    targetAgents: ['Hawk', 'Radar', 'Bounty Hunter', 'Buddy'],
     description: 'All agents join when Chief calls a meeting',
   },
 ];

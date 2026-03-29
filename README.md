@@ -15,8 +15,8 @@ Built on [ElizaOS v2](https://elizaos.ai) and deployed on [Nosana](https://nosan
 | **Team Lead** | Chief | Manages tasks, priorities, deadlines. Coordinates the whole squad. Triages your inbox and drafts standups. |
 | **Code Reviewer** | Hawk | Reviews code, catches vulnerabilities, rates issues by severity. Brutally honest — respects clean code, roasts sloppy code. |
 | **Scout** | Radar | Monitors repos, tracks dependencies, surfaces breaking changes. Pulls docs and research when you need it. |
-| **Bounty Hunter** | Tracker | Scans hackathons, bug bounties, freelance gigs, grants, and jobs. Matches opportunities to your skills. |
-| **Buddy** | Beans | Tracks your work sessions, reminds you to eat, finds nearby food spots, curates playlists. The team's heart and soul. |
+| **Bounty Hunter** | Bounty Hunter | Scans hackathons, bug bounties, freelance gigs, grants, and jobs. Matches opportunities to your skills. |
+| **Buddy** | Buddy | Tracks your work sessions, reminds you to eat, finds nearby food spots, curates playlists. The team's heart and soul. |
 
 Every agent has a distinct personality. They don't just respond to you — they talk to each other, debate, and collaborate in real-time.
 
@@ -53,7 +53,7 @@ Open `http://localhost:3000` to enter the chat room.
 ### Start Specific Agents
 
 ```bash
-# Only start Chief and Beans
+# Only start Chief and Buddy
 elizaos start -- --chief --beans
 ```
 
@@ -76,7 +76,7 @@ Slack-style interface where you @mention agents. They respond, reference each ot
 Call a team meeting and all 5 agents convene. Chief facilitates, each agent contributes from their domain, and the meeting ends with action items.
 
 - **Daily Standup** — Each agent gives status. Chief summarizes priorities.
-- **Sprint Planning** — Tracker presents opportunities, Radar shares research, Hawk sets quality bar, Chief builds the plan, Beans checks it's sustainable.
+- **Sprint Planning** — Bounty Hunter presents opportunities, Radar shares research, Hawk sets quality bar, Chief builds the plan, Buddy checks it's sustainable.
 - **Incident Response** — Auto-triggered when Hawk finds a critical vulnerability.
 - **Ad-Hoc** — Call a meeting anytime on any topic.
 

@@ -14,15 +14,15 @@ describe('Buddies Multi-Agent Project', () => {
     expect(names).toContain('Chief');
     expect(names).toContain('Hawk');
     expect(names).toContain('Radar');
-    expect(names).toContain('Tracker');
-    expect(names).toContain('Beans');
+    expect(names).toContain('Bounty Hunter');
+    expect(names).toContain('Buddy');
   });
 
   it('each agent should have required plugins listed', () => {
     for (const agent of project.agents) {
       expect(agent.character.plugins).toContain('@elizaos/plugin-bootstrap');
       expect(agent.character.plugins).toContain('@elizaos/plugin-sql');
-      expect(agent.character.plugins).toContain('@elizaos/plugin-openai');
+      expect(agent.character.plugins).toContain('@elizaos/plugin-ollama');
     }
   });
 
@@ -56,10 +56,10 @@ describe('Buddies Multi-Agent Project', () => {
     }
   });
 
-  it('only Beans should mention emojis in style', () => {
+  it('only Buddy should mention emojis in style', () => {
     for (const agent of project.agents) {
       const allStyle = agent.character.style?.all?.join(' ') || '';
-      if (agent.character.name === 'Beans') {
+      if (agent.character.name === 'Buddy') {
         expect(allStyle.toLowerCase()).toContain('emoji');
       } else {
         expect(allStyle.toLowerCase()).toContain('never use emoji');
@@ -100,13 +100,13 @@ describe('Agent State Manager', () => {
     agentStateManager.setState('Chief', AgentStatus.IDLE);
     agentStateManager.setState('Hawk', AgentStatus.REVIEWING);
     agentStateManager.setState('Radar', AgentStatus.RESEARCHING);
-    agentStateManager.setState('Tracker', AgentStatus.SCANNING);
-    agentStateManager.setState('Beans', AgentStatus.IDLE);
+    agentStateManager.setState('Bounty Hunter', AgentStatus.SCANNING);
+    agentStateManager.setState('Buddy', AgentStatus.IDLE);
     const all = agentStateManager.getAllStates();
     expect(all.length).toBe(5);
     const names = all.map((s) => s.agentName);
     expect(names).toContain('Chief');
-    expect(names).toContain('Beans');
+    expect(names).toContain('Buddy');
   });
 
   it('should return undefined for unknown agent', () => {
@@ -116,7 +116,7 @@ describe('Agent State Manager', () => {
 
 describe('Should Respond Template', () => {
   it('should generate template for each agent', () => {
-    const agents = ['Chief', 'Hawk', 'Radar', 'Tracker', 'Beans'];
+    const agents = ['Chief', 'Hawk', 'Radar', 'Bounty Hunter', 'Buddy'];
     for (const name of agents) {
       const template = getShouldRespondTemplate(name);
       expect(template).toContain(name);
@@ -129,7 +129,7 @@ describe('Should Respond Template', () => {
     const template = getShouldRespondTemplate('Chief');
     expect(template).toContain('Hawk');
     expect(template).toContain('code review');
-    expect(template).toContain('Beans');
+    expect(template).toContain('Buddy');
     expect(template).toContain('wellness');
   });
 

@@ -101,8 +101,8 @@ export default function StepPreferences({ preferences }: StepPreferencesProps) {
           <strong>Chief</strong> — calm, decisive, speaks in action items<br/>
           <strong>Hawk</strong> — sharp, brutally honest, uses severity tags<br/>
           <strong>Radar</strong> — curious, always cites sources<br/>
-          <strong>Tracker</strong> — hustler energy, leads with numbers<br/>
-          <strong>Beans</strong> — warm, funny, the only one who uses emojis
+          <strong>Bounty Hunter</strong> — hustler energy, leads with numbers<br/>
+          <strong>Buddy</strong> — warm, funny, the only one who uses emojis
         </p>
       </div>
     </div>

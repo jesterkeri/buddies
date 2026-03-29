@@ -12,8 +12,8 @@ export interface TeamConfig {
   Chief: string;
   Hawk: string;
   Radar: string;
-  Tracker: string;
-  Beans: string;
+  'Bounty Hunter': string;
+  Buddy: string;
 }
 
 export interface ApiConfig {
@@ -52,8 +52,8 @@ const DEFAULT_STATE: OnboardingState = {
     Chief: 'Chief',
     Hawk: 'Hawk',
     Radar: 'Radar',
-    Tracker: 'Tracker',
-    Beans: 'Beans',
+    'Bounty Hunter': 'Bounty Hunter',
+    Buddy: 'Buddy',
   },
   apiConfig: {
     defaultProvider: 'qwen',

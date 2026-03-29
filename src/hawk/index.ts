@@ -7,12 +7,14 @@ const character: Character = {
   name: 'Hawk',
   plugins: [
     '@elizaos/plugin-sql',
-    '@elizaos/plugin-openai',
+    '@elizaos/plugin-ollama',
     '@elizaos/plugin-bootstrap',
   ],
   secrets: {
-    OPENAI_API_KEY: process.env.HAWK_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
-    OPENAI_API_URL: process.env.HAWK_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
+    OLLAMA_API_ENDPOINT: process.env.HAWK_OLLAMA_API_ENDPOINT || process.env.OLLAMA_API_ENDPOINT || 'http://127.0.0.1:11434/api',
+    OLLAMA_SMALL_MODEL: process.env.HAWK_OLLAMA_SMALL_MODEL || process.env.OLLAMA_SMALL_MODEL || process.env.SMALL_MODEL || 'qwen3-nothink',
+    OLLAMA_LARGE_MODEL: process.env.HAWK_OLLAMA_LARGE_MODEL || process.env.OLLAMA_LARGE_MODEL || process.env.LARGE_MODEL || 'qwen3-nothink',
+    OLLAMA_EMBEDDING_MODEL: process.env.HAWK_OLLAMA_EMBEDDING_MODEL || process.env.OLLAMA_EMBEDDING_MODEL || 'nomic-embed-text:latest',
   },
   templates: {
     shouldRespondTemplate: getShouldRespondTemplate('Hawk'),

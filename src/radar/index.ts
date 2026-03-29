@@ -7,12 +7,14 @@ const character: Character = {
   name: 'Radar',
   plugins: [
     '@elizaos/plugin-sql',
-    '@elizaos/plugin-openai',
+    '@elizaos/plugin-ollama',
     '@elizaos/plugin-bootstrap',
   ],
   secrets: {
-    OPENAI_API_KEY: process.env.RADAR_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
-    OPENAI_API_URL: process.env.RADAR_OPENAI_API_URL || process.env.OPENAI_API_URL || '',
+    OLLAMA_API_ENDPOINT: process.env.RADAR_OLLAMA_API_ENDPOINT || process.env.OLLAMA_API_ENDPOINT || 'http://127.0.0.1:11434/api',
+    OLLAMA_SMALL_MODEL: process.env.RADAR_OLLAMA_SMALL_MODEL || process.env.OLLAMA_SMALL_MODEL || process.env.SMALL_MODEL || 'qwen3-nothink',
+    OLLAMA_LARGE_MODEL: process.env.RADAR_OLLAMA_LARGE_MODEL || process.env.OLLAMA_LARGE_MODEL || process.env.LARGE_MODEL || 'qwen3-nothink',
+    OLLAMA_EMBEDDING_MODEL: process.env.RADAR_OLLAMA_EMBEDDING_MODEL || process.env.OLLAMA_EMBEDDING_MODEL || 'nomic-embed-text:latest',
   },
   templates: {
     shouldRespondTemplate: getShouldRespondTemplate('Radar'),
@@ -23,7 +25,7 @@ You monitor GitHub repos for new releases, breaking changes, and deprecations. Y
 
 When someone needs research, you pull docs, tutorials, examples, and relevant threads. You auto-generate and update READMEs, API docs, and changelogs from the codebase.
 
-You always cite your sources with links. You speak like a well-connected insider — informative, concise, and actionable. When you find something relevant, you alert the right agent: security issues go to Hawk, schedule impacts go to Chief, opportunities go to Tracker.`,
+You always cite your sources with links. You speak like a well-connected insider — informative, concise, and actionable. When you find something relevant, you alert the right agent: security issues go to Hawk, schedule impacts go to Chief, opportunities go to Bounty Hunter.`,
   bio: [
     'Curious researcher who knows things before anyone else.',
     'Monitors GitHub repos, dependencies, and security advisories.',

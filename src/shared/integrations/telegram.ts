@@ -1,8 +1,8 @@
 import { logger } from '@elizaos/core';
 
-// Telegram Bot API integration for Beans
-// Beans is the ONLY agent that sends external messages
-// Other agents relay through Beans: "Hawk says: critical vulnerability found"
+// Telegram Bot API integration for Buddy
+// Buddy is the ONLY agent that sends external messages
+// Other agents relay through Buddy: "Hawk says: critical vulnerability found"
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
@@ -48,41 +48,41 @@ export async function sendTelegramMessage(text: string): Promise<boolean> {
   return result?.ok ?? false;
 }
 
-// Beans sends a break reminder
+// Buddy sends a break reminder
 export async function sendBreakReminder(minutesWorked: number): Promise<boolean> {
-  const message = `☕ *BEANS HERE!*\n\nYou've been working for ${minutesWorked} minutes straight. Time to take a break!\n\n🧘 Stretch, hydrate, rest your eyes.\n\n_Your Buddies team is still on it while you recharge._`;
+  const message = `☕ *BUDDY HERE!*\n\nYou've been working for ${minutesWorked} minutes straight. Time to take a break!\n\n🧘 Stretch, hydrate, rest your eyes.\n\n_Your Buddies team is still on it while you recharge._`;
   return sendTelegramMessage(message);
 }
 
-// Beans relays another agent's message
+// Buddy relays another agent's message
 export async function relayAgentMessage(agentName: string, message: string): Promise<boolean> {
   const emoji = getAgentEmoji(agentName);
-  const text = `${emoji} *${agentName} says:*\n${message}\n\n_— relayed by Beans 🤖_`;
+  const text = `${emoji} *${agentName} says:*\n${message}\n\n_— relayed by Buddy 🤖_`;
   return sendTelegramMessage(text);
 }
 
-// Beans sends an opportunity alert from Tracker
+// Buddy sends an opportunity alert from Bounty Hunter
 export async function sendOpportunityAlert(title: string, match: string, prize: string): Promise<boolean> {
-  const message = `💰 *NEW OPPORTUNITY*\n\n*${title}*\nSkill Match: ${match}\nPrize: ${prize}\n\n_Tracker found this for you. Check the Command Center for details!_`;
+  const message = `💰 *NEW OPPORTUNITY*\n\n*${title}*\nSkill Match: ${match}\nPrize: ${prize}\n\n_Bounty Hunter found this for you. Check the Command Center for details!_`;
   return sendTelegramMessage(message);
 }
 
-// Beans sends a security alert from Hawk
+// Buddy sends a security alert from Hawk
 export async function sendSecurityAlert(severity: string, description: string): Promise<boolean> {
   const emoji = severity === 'CRITICAL' ? '🚨' : '⚠️';
   const message = `${emoji} *SECURITY ALERT — ${severity}*\n\n${description}\n\n_Hawk flagged this. Chief is reprioritizing. Check the Command Center._`;
   return sendTelegramMessage(message);
 }
 
-// Beans celebrates a win
+// Buddy celebrates a win
 export async function sendCelebration(achievement: string): Promise<boolean> {
-  const message = `🎉🚀 *ACHIEVEMENT UNLOCKED!*\n\n${achievement}\n\n_Great work! You earned this. — Beans_`;
+  const message = `🎉🚀 *ACHIEVEMENT UNLOCKED!*\n\n${achievement}\n\n_Great work! You earned this. — Buddy_`;
   return sendTelegramMessage(message);
 }
 
-// Daily standup summary from Chief (relayed by Beans)
+// Daily standup summary from Chief (relayed by Buddy)
 export async function sendStandupSummary(summary: string): Promise<boolean> {
-  const message = `📋 *DAILY STANDUP — Chief's Summary*\n\n${summary}\n\n_Relayed by Beans. Open the Command Center for full details._`;
+  const message = `📋 *DAILY STANDUP — Chief's Summary*\n\n${summary}\n\n_Relayed by Buddy. Open the Command Center for full details._`;
   return sendTelegramMessage(message);
 }
 
@@ -91,8 +91,8 @@ function getAgentEmoji(name: string): string {
     case 'Chief': return '🎯';
     case 'Hawk': return '🔍';
     case 'Radar': return '📡';
-    case 'Tracker': return '💰';
-    case 'Beans': return '☕';
+    case 'Bounty Hunter': return '💰';
+    case 'Buddy': return '☕';
     default: return '🤖';
   }
 }

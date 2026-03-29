@@ -4,10 +4,10 @@ import { createCharacter, updateCharacter, type CharacterData } from '../../game
 import { loadCharacterFrames, loadImage, type CharacterFrames, type Direction } from '../../game/sprites';
 
 const AGENT_CHARS: Record<string, number> = {
-  Chief: 0, Hawk: 1, Radar: 2, Tracker: 3, Beans: 4,
+  Chief: 0, Hawk: 1, Radar: 2, 'Bounty Hunter': 3, Buddy: 4,
 };
 const AGENT_COLORS: Record<string, number> = {
-  Chief: 0x3b82f6, Hawk: 0xe41937, Radar: 0x2bb6b3, Tracker: 0xf9d616, Beans: 0xa855f7,
+  Chief: 0x3b82f6, Hawk: 0xe41937, Radar: 0x2bb6b3, 'Bounty Hunter': 0xf9d616, Buddy: 0xa855f7,
 };
 
 const TILE = 16; // base tile size
@@ -33,8 +33,8 @@ const WORKSTATIONS = [
   { agent: 'Chief',   col: 2,  row: 3 },
   { agent: 'Hawk',    col: 7,  row: 3 },
   { agent: 'Radar',   col: 2,  row: 7 },
-  { agent: 'Tracker', col: 7,  row: 7 },
-  { agent: 'Beans',   col: 2,  row: 10 },
+  { agent: 'Bounty Hunter', col: 7,  row: 7 },
+  { agent: 'Buddy',   col: 2,  row: 10 },
 ];
 
 // Meeting table area

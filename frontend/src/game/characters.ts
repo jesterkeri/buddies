@@ -42,8 +42,8 @@ export function getTargetPosition(name: string, agentStatus: string): Point {
   if (agentStatus === 'MEETING') {
     return MEETING_POSITIONS[name] || SEAT_POSITIONS[name];
   }
-  if (agentStatus === 'BREAK' || (name === 'Beans' && agentStatus === 'IDLE')) {
-    // Beans hangs out at break area when idle
+  if (agentStatus === 'BREAK' || (name === 'Buddy' && agentStatus === 'IDLE')) {
+    // Buddy hangs out at break area when idle
   }
   // Default: go to desk
   return SEAT_POSITIONS[name] || { col: 1, row: 1 };
