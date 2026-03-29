@@ -9,8 +9,8 @@ const AGENT_ROLES: Record<string, string> = {
   Chief: 'Team Lead',
   Hawk: 'Code Reviewer',
   Radar: 'Scout',
-  'Bounty Hunter': 'Bounty Hunter',
-  Buddy: 'Buddy',
+  'Bounty Hunter': 'Opportunity Scanner',
+  Buddy: 'Wellness Agent',
 };
 
 const AGENT_SKILLS: Record<string, string[]> = {
@@ -165,8 +165,9 @@ export default function Sidebar() {
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         {agents?.map((agent) => {
           const state = stateMap.get(agent.name);
-          const role = AGENT_ROLES[agent.name] || '';
-          const skills = AGENT_SKILLS[agent.name] || [];
+          // Look up role/skills by backend name, fallback to partial match
+          const role = AGENT_ROLES[agent.name] || Object.entries(AGENT_ROLES).find(([k]) => agent.name.includes(k))?.[1] || agent.name;
+          const skills = AGENT_SKILLS[agent.name] || Object.entries(AGENT_SKILLS).find(([k]) => agent.name.includes(k))?.[1] || [];
 
           return (
             <div
