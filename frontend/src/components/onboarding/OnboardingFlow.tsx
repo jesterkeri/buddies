@@ -1,13 +1,11 @@
 import { useOnboarding, setStep, completeOnboarding } from './onboardingStore';
 import StepProfile from './StepProfile';
 import StepTeamNames from './StepTeamNames';
-import StepApiConfig from './StepApiConfig';
 import StepPreferences from './StepPreferences';
 
 const STEPS = [
   { label: 'SKILL PROFILE', desc: 'Tell us about yourself', color: '#E41937' },
   { label: 'NAME YOUR TEAM', desc: 'Customize your agents', color: '#F9D616' },
-  { label: 'API CONFIG', desc: 'Connect your LLM provider', color: '#2BB6B3' },
   { label: 'PREFERENCES', desc: 'Set your work style', color: '#a855f7' },
 ];
 
@@ -76,8 +74,7 @@ export default function OnboardingFlow() {
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {step === 0 && <StepProfile profile={state.profile} />}
           {step === 1 && <StepTeamNames teamNames={state.teamNames} />}
-          {step === 2 && <StepApiConfig apiConfig={state.apiConfig} />}
-          {step === 3 && <StepPreferences preferences={state.preferences} />}
+          {step === 2 && <StepPreferences preferences={state.preferences} />}
         </div>
 
         {/* Navigation */}

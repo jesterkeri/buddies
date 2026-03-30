@@ -4,6 +4,7 @@ import AgentAvatar from '../shared/AgentAvatar';
 import StatusBadge from '../shared/StatusBadge';
 import { useSession, getNextBreakIn, getBreakInterval, isBreakDue, takeBreak } from '../session/sessionStore';
 import { getOnboardingState, updateTeamNames } from '../onboarding/onboardingStore';
+import { useSettings } from '../settings/settingsStore';
 
 const AGENT_ROLES: Record<string, string> = {
   Chief: 'Team Lead',
@@ -75,6 +76,7 @@ export default function Sidebar() {
   const { data: agents } = useAgents();
   const { data: states } = useAgentStates();
   const session = useSession();
+  const settings = useSettings();
   const [nextBreak, setNextBreak] = useState(0);
   const [breakDue, setBreakDue] = useState(false);
 
@@ -169,24 +171,44 @@ export default function Sidebar() {
           const role = AGENT_ROLES[agent.name] || Object.entries(AGENT_ROLES).find(([k]) => agent.name.includes(k))?.[1] || agent.name;
           const skills = AGENT_SKILLS[agent.name] || Object.entries(AGENT_SKILLS).find(([k]) => agent.name.includes(k))?.[1] || [];
 
+          // Check if agent has a valid AI provider configured
+          const agentConfig = settings.aiConfig.perAgent[agent.name];
+          const isDisconnected = agentConfig?.provider === 'none';
+          const provider = agentConfig?.provider || settings.aiConfig.defaultProvider;
+          const FREE_PROVIDERS = ['ollama', 'nosana'];
+          const isFree = FREE_PROVIDERS.includes(provider);
+          const apiKey = agentConfig?.apiKey || settings.aiConfig.defaultApiKey;
+          const isConnected = !isDisconnected && (isFree || (apiKey && apiKey.length > 5));
+
           return (
             <div
               key={agent.id}
               className="px-3 py-2.5 border-2 transition-all cursor-pointer"
               style={{
-                borderColor: 'rgba(242,244,243,0.08)',
-                backgroundColor: state?.status !== 'IDLE' ? 'rgba(242,244,243,0.03)' : 'transparent',
+                borderColor: isConnected ? 'rgba(242,244,243,0.08)' : 'rgba(228,25,55,0.3)',
+                backgroundColor: !isConnected ? 'rgba(228,25,55,0.05)' : state?.status !== 'IDLE' ? 'rgba(242,244,243,0.03)' : 'transparent',
               }}
             >
               <div className="flex items-center gap-2.5">
-                <AgentAvatar name={agent.name} size="sm" />
+                <div style={{ opacity: isConnected ? 1 : 0.4 }}>
+                  <AgentAvatar name={agent.name} size="sm" />
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <EditableName agentKey={agent.name} />
-                    <StatusBadge status={state?.status || 'IDLE'} />
+                    {isConnected ? (
+                      <StatusBadge status={state?.status || 'IDLE'} />
+                    ) : (
+                      <span
+                        className="text-[8px] font-mono font-bold px-1.5 py-0.5 border-2"
+                        style={{ borderColor: '#E41937', color: '#E41937', backgroundColor: 'rgba(228,25,55,0.15)' }}
+                      >
+                        NOT CONNECTED
+                      </span>
+                    )}
                   </div>
-                  <p className="text-[9px] font-mono" style={{ color: 'rgba(242,244,243,0.35)' }}>
-                    {role}
+                  <p className="text-[9px] font-mono" style={{ color: isConnected ? 'rgba(242,244,243,0.35)' : '#E41937' }}>
+                    {isConnected ? role : 'Needs API key in Connect tab'}
                   </p>
                 </div>
               </div>
@@ -197,7 +219,10 @@ export default function Sidebar() {
                   <span
                     key={skill}
                     className="text-[9px] font-mono font-bold px-2 py-0.5 border"
-                    style={{ borderColor: 'rgba(242,244,243,0.15)', color: 'rgba(242,244,243,0.4)' }}
+                    style={{
+                      borderColor: isConnected ? 'rgba(242,244,243,0.15)' : 'rgba(228,25,55,0.2)',
+                      color: isConnected ? 'rgba(242,244,243,0.4)' : 'rgba(228,25,55,0.4)',
+                    }}
                   >
                     {skill}
                   </span>
@@ -205,7 +230,7 @@ export default function Sidebar() {
               </div>
 
               {/* Current task */}
-              {state?.currentTask && (
+              {state?.currentTask && isConnected && (
                 <p className="text-[9px] font-mono mt-1 ml-10" style={{ color: '#F9D616' }}>
                   &gt; {state.currentTask}
                 </p>
@@ -224,16 +249,12 @@ export default function Sidebar() {
       {/* Bottom info */}
       <div className="px-3 py-2 border-t-2 space-y-1" style={{ borderColor: 'rgba(242,244,243,0.1)' }}>
         <div className="flex items-center justify-between">
-          <span className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.25)' }}>MODEL</span>
-          <span className="text-[8px] font-mono" style={{ color: '#2BB6B3' }}>qwen3:8b</span>
-        </div>
-        <div className="flex items-center justify-between">
           <span className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.25)' }}>RUNTIME</span>
           <span className="text-[8px] font-mono" style={{ color: '#22c55e' }}>ELIZAOS v1.7.2</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.25)' }}>RELAY</span>
-          <span className="text-[8px] font-mono" style={{ color: '#a855f7' }}>BUDDY</span>
+          <span className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.25)' }}>AGENTS</span>
+          <span className="text-[8px] font-mono" style={{ color: '#2BB6B3' }}>{activeAgents} ONLINE</span>
         </div>
       </div>
 

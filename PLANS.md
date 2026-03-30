@@ -2,7 +2,7 @@
 
 **Revised scope**: Unified dashboard with Chat Room, Pixel Office, Task Board, and Activity Feed. Inspired by Mission Control (builderz-labs) and OpenClaw pixel office.
 
-**Timeline**: March 26 → April 14 = 19 days (Day 1 complete)
+**Timeline**: March 26 → April 14 = 19 days
 
 ---
 
@@ -43,8 +43,8 @@
 - [x] 24. Add agent avatars and name badges with status indicators
 - [ ] 25. Add typing indicators per agent (placeholder — needs backend streaming)
 - [x] 26. Implement @mention autocomplete
-- [x] 27. Wire frontend to ElizaOS backend via WebSocket
-- [x] 28. Real-time message streaming from all 5 agents
+- [x] 27. Wire frontend to ElizaOS backend via Sessions API
+- [x] 28. Real-time message display with WhatsApp-style left/right layout
 
 ## Phase 6: Pixel Art Office (Day 5–8) ~~DONE~~
 - [x] 29. Set up PixiJS canvas for the office scene
@@ -107,24 +107,72 @@
 - [x] 72. Loading states, error states, empty states across all panels
 - [ ] 73. Sound effects for pixel office (deferred — optional)
 
-## Phase 14: Documentation (Day 16–18)
-- [x] 74. Write comprehensive README with quick-start guide
-- [ ] 75. Create architecture diagram (dashboard + agents + communication flow)
-- [ ] 76. Document each agent's capabilities and personality
-- [ ] 77. Document onboarding flow
-- [ ] 78. Screenshots of all dashboard views for README
+---
 
-## Phase 15: Demo & Submission (Day 17–19)
-- [ ] 79. Record 60-second demo video:
+## Phase 14: Frontend-Backend Rewire & AI Config (Day 17–18) ~~IN PROGRESS~~
+- [x] 74. Rewire chat to use ElizaOS Sessions API with HTTP transport
+- [x] 75. Per-agent AI provider config from frontend Connect tab
+- [x] 76. Config server (port 3001) for backend AI config persistence
+- [x] 77. WhatsApp-style message layout (user right, agent left)
+- [x] 78. Reply-to-message feature
+- [x] 79. Agent disconnect/connect from frontend sidebar
+- [ ] 80. Remove all placeholder/fake data from Intel and Missions tabs
+- [ ] 81. Ensure config syncs properly on deploy (no localhost hardcoding)
+
+## Phase 15: RAG Pipelines for Agents (Day 18–19)
+- [ ] 82. **Hawk RAG**: Ingest user's codebase (GitHub repo URL or paste) → vector store → code review with full context
+- [ ] 83. **Radar RAG**: Ingest documentation URLs, RSS feeds, GitHub release pages → research with real sources
+- [ ] 84. **Bounty Hunter RAG**: Ingest bounty/hackathon listings (Gitcoin, Devfolio, ETHGlobal, Superteam) → match against user skills
+- [ ] 85. **Chief RAG**: Ingest project README, task history, standup logs → context-aware prioritization
+- [ ] 86. **Buddy RAG**: Ingest local restaurant/cafe data, user preferences → personalized recommendations
+- [ ] 86a. **Buddy**: Google Places API integration — real photos, ratings, reviews for restaurants/hotels/cafes near user's location
+- [ ] 86b. **Buddy**: Unsplash API integration — stock photos matching food/location recommendations for visual responses
+- [ ] 87. Shared vector store across agents (ElizaOS memory + custom embeddings)
+
+## Phase 16: Agent Feature Buildout (Day 18–19)
+- [ ] 88. **Hawk**: Accept GitHub PR URL → fetch diff → review with severity tags + inline suggestions
+- [ ] 89. **Hawk**: Security audit mode — scan for OWASP top 10, reentrancy, access control
+- [ ] 90. **Radar**: Monitor npm/cargo/pip dependencies for breaking changes and CVEs
+- [ ] 91. **Radar**: Auto-generate migration guides when breaking changes detected
+- [ ] 92. **Bounty Hunter**: Score opportunities by match % (skills, prize, deadline, effort)
+- [ ] 93. **Bounty Hunter**: Auto-draft application templates for matched opportunities
+- [ ] 94. **Chief**: Generate PR descriptions from git diff
+- [ ] 95. **Chief**: Daily standup summary from all agent activity
+- [ ] 96. **Buddy**: Location-aware food/cafe recommendations (use user's city + preferences)
+- [ ] 97. **Buddy**: Pomodoro timer integration with break enforcement
+- [ ] 98. All agents: Respond to each other autonomously via autonomous loops
+
+## Phase 16B: Autonomous Agent Communication (Day 19)
+- [ ] 98a. Fix autonomous loops startup (retry until team channel is ready, don't give up)
+- [ ] 98b. Chief initiates standup on boot — all connected agents respond with their status
+- [ ] 98c. Agents respond to each other's messages without user input (message bus triggers shouldRespond for all agents)
+- [ ] 98d. Bounty Hunter scans opportunities periodically → posts to chat → Chief evaluates → team mobilizes
+- [ ] 98e. Buddy wellness checks — periodic reminders that other agents acknowledge
+- [ ] 98f. Radar dependency monitoring — posts alerts that Hawk reviews
+- [ ] 98g. Inter-agent trigger chains: Hawk flags issue → Chief reprioritizes → Radar researches → Buddy checks morale
+- [ ] 98h. Agents continue conversations autonomously while user is away (conversation threads persist)
+- [ ] 98i. Rate limiting — prevent infinite agent-to-agent loops (cooldowns, max responses per cycle)
+- [ ] 98j. Frontend shows agent-to-agent messages in real-time alongside user messages
+
+## Phase 17: Nosana Deployment (Day 19)
+- [ ] 99. Build Docker image with all changes
+- [ ] 100. Push to Docker Hub (jesterkeri/buddies)
+- [ ] 101. Deploy to Nosana GPU network
+- [ ] 102. Test all agents respond on Nosana with Qwen3.5-27B or user-connected provider
+- [ ] 103. Verify frontend loads, chat works, config persists inside container
+- [ ] 104. Test onboarding flow end-to-end on deployed instance
+
+## Phase 18: Demo & Submission (Day 19)
+- [ ] 105. Record 60-second demo video:
   - 0–10s: Intro — show the dashboard with pixel office
-  - 10–20s: Onboarding — name your team, connect API keys
-  - 20–35s: Chat room — paste code, Hawk reviews, Radar pulls CVE, Chief reprioritizes
+  - 10–20s: Onboarding — connect API key, name your team
+  - 20–35s: Chat room — @mention agents, they respond with personality
   - 35–45s: Pixel office — watch agents walk to meeting table, collaborate visually
   - 45–55s: Tracker drops a bounty briefing, team mobilizes
   - 55–60s: Beans reminds user to eat, close with tagline
-- [ ] 80. Write 300-word project description
-- [ ] 81. Create social media post (Twitter thread with screenshots + pixel office GIF)
-- [ ] 82. Star the 4 Nosana GitHub repos
-- [ ] 83. Final end-to-end testing on Nosana deployment
-- [ ] 84. Rebuild and push Docker image with full frontend
-- [ ] 85. **SUBMIT BY APRIL 14**
+- [ ] 106. Write 300-word project description
+- [ ] 107. Create social media post (Twitter thread with screenshots + pixel office GIF)
+- [ ] 108. Star the 4 Nosana GitHub repos
+- [ ] 109. Final end-to-end testing on Nosana deployment
+- [ ] 110. Rebuild and push Docker image with full frontend
+- [ ] 111. **SUBMIT BY APRIL 14**

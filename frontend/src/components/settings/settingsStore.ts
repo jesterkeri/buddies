@@ -62,10 +62,10 @@ function defaultState(): SettingsState {
       discord: { enabled: false, webhookUrl: '', connected: false },
     },
     aiConfig: {
-      defaultProvider: 'ollama',
+      defaultProvider: '',
       defaultApiKey: '',
-      defaultApiUrl: 'http://127.0.0.1:11434/v1',
-      defaultModel: 'qwen2.5:7b',
+      defaultApiUrl: '',
+      defaultModel: '',
       perAgent: {},
     },
     notifications: {
@@ -91,12 +91,49 @@ function saveState(s: SettingsState): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
 }
 
+// Config server runs on port 3001 alongside ElizaOS
+// Use the same hostname as the page so it works on any domain (localhost, Nosana, Vercel, etc.)
+const CONFIG_SERVER = `${window.location.protocol}//${window.location.hostname}:3001`;
+
+// Sync AI config to the backend so agents actually use it
+function syncAiConfigToBackend(aiConfig: AiConfig): void {
+  fetch(`${CONFIG_SERVER}/config`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(aiConfig),
+  }).catch(() => {
+    // Config server might not be running yet
+  });
+}
+
+// Load AI config from backend on startup
+async function loadAiConfigFromBackend(): Promise<void> {
+  try {
+    const res = await fetch(`${CONFIG_SERVER}/config`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.data && data.data.defaultProvider) {
+        state = { ...state, aiConfig: { ...state.aiConfig, ...data.data } };
+        saveState(state);
+        listeners.forEach((l) => l());
+      }
+    }
+  } catch {
+    // Config server not available
+  }
+}
+
+// Sync on startup
+loadAiConfigFromBackend();
+
 type Listener = () => void;
 const listeners = new Set<Listener>();
 let state = loadState();
 
 function notify(): void {
   saveState(state);
+  // Push AI config to backend whenever it changes
+  syncAiConfigToBackend(state.aiConfig);
   listeners.forEach((l) => l());
 }
 

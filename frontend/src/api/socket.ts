@@ -44,13 +44,17 @@ export function getSocket(): Socket {
 // Track joined channels for reconnection
 const pendingChannels = new Set<string>();
 
+const MESSAGE_SERVER_ID = '00000000-0000-0000-0000-000000000000';
+
 export function joinChannel(channelId: string): void {
   const s = getSocket();
   pendingChannels.add(channelId);
   s.emit(SOCKET_EVENTS.ROOM_JOINING, {
     channelId,
     entityId: getUserEntityId(),
+    messageServerId: MESSAGE_SERVER_ID,
   });
+  console.log('[Buddies] Joined channel room:', channelId);
 }
 
 export function onMessageBroadcast(callback: (data: any) => void): () => void {

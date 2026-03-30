@@ -1,48 +1,66 @@
-const BASE_URL = window.location.origin;
+/**
+ * Buddies API Client — Clean implementation based on ElizaOS v2 messaging architecture.
+ *
+ * Flow:
+ * 1. List agents → get agent IDs
+ * 2. Create session with an agent → get sessionId
+ * 3. Send messages via session API with transport:"http" → get agent response inline
+ * 4. Poll session messages for history
+ *
+ * Why sessions, not channels:
+ * - Sessions API is what ElizaOS's built-in client uses
+ * - It handles channel creation, participant management, and response routing automatically
+ * - HTTP transport returns the agent response synchronously in the same request
+ * - No Socket.IO complexity needed
+ */
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+const BASE = window.location.origin;
+
+async function api<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...options,
   });
-  if (!res.ok) {
-    throw new Error(`API ${path} failed: ${res.status}`);
-  }
+  if (!res.ok) throw new Error(`API ${path}: ${res.status}`);
   return res.json();
 }
 
+// ── Agents ──
+
 export async function listAgents(): Promise<any[]> {
-  const data = await apiFetch<any>('/api/agents');
-  return data?.agents || data?.data?.agents || data?.data || [];
+  const d = await api<any>('/api/agents');
+  return d?.data?.agents || d?.agents || d?.data || [];
 }
 
-export async function getCurrentMessageServer(): Promise<string> {
-  const data = await apiFetch<any>('/api/messaging/message-servers/current');
-  return data?.data?.id || data?.id || data?.messageServerId || '';
-}
+// ── Sessions ──
 
-export async function getServerChannels(serverId: string): Promise<any[]> {
-  const data = await apiFetch<any>(`/api/messaging/message-servers/${serverId}/channels`);
-  return data?.data?.channels || data?.data || data?.channels || [];
-}
-
-export async function getChannelMessages(channelId: string, limit = 50): Promise<any[]> {
-  const data = await apiFetch<any>(`/api/messaging/channels/${channelId}/messages?limit=${limit}`);
-  return data?.data?.messages || data?.data || data?.messages || [];
-}
-
-export async function postMessage(channelId: string, content: string, entityId: string): Promise<any> {
-  return apiFetch<any>(`/api/messaging/channels/${channelId}/messages`, {
+export async function createAgentSession(agentId: string, userId: string): Promise<any> {
+  return api<any>('/api/messaging/sessions', {
     method: 'POST',
-    body: JSON.stringify({
-      content,
-      author_id: entityId,
-      metadata: { source: 'buddies-frontend' },
-    }),
+    body: JSON.stringify({ agentId, userId }),
   });
 }
 
+export async function sendMessage(sessionId: string, content: string): Promise<any> {
+  // HTTP transport: blocks until agent responds, returns response inline
+  return api<any>(`/api/messaging/sessions/${sessionId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ content, transport: 'http' }),
+  });
+}
+
+export async function getMessages(sessionId: string): Promise<any[]> {
+  const d = await api<any>(`/api/messaging/sessions/${sessionId}/messages`);
+  return d?.messages || d?.data?.messages || d?.data || [];
+}
+
+// ── Agent States ──
+
 export async function getAgentStates(): Promise<any[]> {
-  const data = await apiFetch<any>('/api/buddies/states');
-  return data?.data || [];
+  try {
+    const d = await api<any>('/api/buddies/states');
+    return d?.data || [];
+  } catch {
+    return [];
+  }
 }

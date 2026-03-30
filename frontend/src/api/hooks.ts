@@ -1,15 +1,22 @@
+/**
+ * Buddies React Hooks — Clean implementation.
+ *
+ * Each agent gets its own session. When you @mention an agent,
+ * the message goes to that agent's session and the response comes back inline.
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useCallback } from 'react';
 import {
   listAgents,
-  getCurrentMessageServer,
-  getServerChannels,
-  getChannelMessages,
-  postMessage,
+  createAgentSession,
+  sendMessage,
+  getMessages,
   getAgentStates,
 } from './client';
-import { joinChannel, onMessageBroadcast } from './socket';
 import { getUserEntityId, getAgentColor, type AgentInfo, type ChatMessage, type AgentState } from '../types';
+
+// ── Agents ──
 
 export function useAgents() {
   return useQuery<AgentInfo[]>({
@@ -26,96 +33,175 @@ export function useAgents() {
   });
 }
 
-export function useTeamChannel() {
-  return useQuery<string | null>({
-    queryKey: ['teamChannel'],
-    queryFn: async () => {
-      const serverId = await getCurrentMessageServer();
-      if (!serverId) return null;
-      const channels = await getServerChannels(serverId);
-      const teamChannel = channels.find((c: any) => c.name === 'Team Chat');
-      return teamChannel?.id || null;
-    },
-    staleTime: 60_000,
-    retry: 5,
-    retryDelay: 2000,
-  });
+// ── Per-agent sessions ──
+
+// Cache: agentId → sessionId
+const sessionCache = new Map<string, string>();
+
+async function getOrCreateSession(agentId: string): Promise<string> {
+  const cached = sessionCache.get(agentId);
+  if (cached) return cached;
+
+  const userId = getUserEntityId();
+  const res = await createAgentSession(agentId, userId);
+  const sessionId = res?.sessionId || res?.data?.sessionId;
+  if (sessionId) sessionCache.set(agentId, sessionId);
+  return sessionId;
 }
 
-export function useMessages(channelId: string | null | undefined) {
-  const queryClient = useQueryClient();
+// ── Team session (for initial load / default agent) ──
+
+export function useTeamSession() {
   const { data: agents } = useAgents();
 
-  // Build agent ID → name map (memoized to avoid socket listener churn)
-  const agentMap = useMemo(() => {
-    const map = new Map<string, string>();
-    agents?.forEach((a) => map.set(a.id, a.name));
-    return map;
-  }, [agents]);
-
-  const query = useQuery<ChatMessage[]>({
-    queryKey: ['messages', channelId],
+  return useQuery<{ sessionId: string; channelId: string } | null>({
+    queryKey: ['teamSession', agents?.length],
     queryFn: async () => {
-      if (!channelId) return [];
-      const messages = await getChannelMessages(channelId);
-      return messages.map((m: any) => normalizeMessage(m, agentMap));
+      if (!agents || agents.length === 0) return null;
+      // Create session with Chief (team lead) as default
+      const chief = agents.find((a) => a.name === 'Chief') || agents[0];
+      const sessionId = await getOrCreateSession(chief.id);
+      return sessionId ? { sessionId, channelId: sessionId } : null;
     },
-    enabled: !!channelId,
-    staleTime: 10_000,
-    refetchInterval: 10_000,
+    enabled: !!agents && agents.length > 0,
+    staleTime: 300_000,
+    retry: 3,
   });
-
-  // Socket.io real-time updates
-  useEffect(() => {
-    if (!channelId) return;
-
-    joinChannel(channelId);
-
-    const cleanup = onMessageBroadcast((data: any) => {
-      if (data.channelId !== channelId && data.roomId !== channelId) return;
-
-      const msg = data.message || data;
-      const normalized = normalizeMessage(msg, agentMap);
-
-      queryClient.setQueryData<ChatMessage[]>(['messages', channelId], (old) => {
-        if (!old) return [normalized];
-        // Avoid duplicates
-        if (old.some((m) => m.id === normalized.id)) return old;
-        return [...old, normalized];
-      });
-    });
-
-    return cleanup;
-  }, [channelId, queryClient, agents]);
-
-  return query;
 }
 
-export function useSendMessage(channelId: string | null | undefined) {
+// ── All messages (unified across sessions) ──
+
+// Store all chat messages in a single local array
+let allMessages: ChatMessage[] = [];
+
+export function useMessages(_channelId: string | null | undefined) {
+  return useQuery<ChatMessage[]>({
+    queryKey: ['allMessages'],
+    queryFn: () => allMessages,
+    staleTime: 1_000,
+    refetchInterval: 2_000,
+  });
+}
+
+// ── Send message ──
+
+export function useSendMessage(_channelId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const { data: agents } = useAgents();
   const entityId = getUserEntityId();
 
   return useMutation({
     mutationFn: async (content: string) => {
-      if (!channelId) throw new Error('No channel');
-      return postMessage(channelId, content, entityId);
-    },
-    onMutate: async (content: string) => {
-      // Optimistic update
-      const optimistic: ChatMessage = {
-        id: `optimistic-${Date.now()}`,
+      if (!agents || agents.length === 0) throw new Error('No agents');
+
+      // Add user message immediately
+      const userMsg: ChatMessage = {
+        id: `user-${Date.now()}`,
         authorId: entityId,
         authorName: 'You',
         isAgent: false,
         content,
         timestamp: Date.now(),
       };
-      queryClient.setQueryData<ChatMessage[]>(['messages', channelId], (old) =>
-        old ? [...old, optimistic] : [optimistic]
-      );
+      allMessages = [...allMessages, userMsg];
+      queryClient.setQueryData<ChatMessage[]>(['allMessages'], allMessages);
+
+      // Find which agent to talk to
+      const targetAgent = findTargetAgent(content, agents);
+
+      // Check if agent is connected (has a provider configured)
+      const settings = JSON.parse(localStorage.getItem('buddies-settings') || '{}');
+      const perAgent = settings?.aiConfig?.perAgent || {};
+      const agentConfig = perAgent[targetAgent.name];
+      const isDisconnected = !agentConfig?.provider || agentConfig.provider === 'none' || agentConfig.provider === '';
+
+      if (isDisconnected) {
+        // Add error message to chat
+        const errMsg: ChatMessage = {
+          id: `err-${Date.now()}`,
+          authorId: targetAgent.id,
+          authorName: targetAgent.name,
+          isAgent: true,
+          content: `${targetAgent.name} is not connected. Go to the Connect tab to add an API key for this agent.`,
+          timestamp: Date.now(),
+          agentColor: targetAgent.color,
+        };
+        allMessages = [...allMessages, errMsg];
+        queryClient.setQueryData<ChatMessage[]>(['allMessages'], allMessages);
+        return { success: false, error: 'Agent not connected' };
+      }
+
+      // Get or create session for this agent
+      const sessionId = await getOrCreateSession(targetAgent.id);
+      if (!sessionId) throw new Error('Failed to create session');
+
+      // Send and get response (HTTP transport — synchronous)
+      const data = await sendMessage(sessionId, content);
+
+      // Extract agent response
+      const agentResponse = data?.agentResponse;
+      if (agentResponse && agentResponse.text) {
+        const responseMsg: ChatMessage = {
+          id: agentResponse.responseId || `agent-${Date.now()}`,
+          authorId: targetAgent.id,
+          authorName: targetAgent.name,
+          isAgent: true,
+          content: agentResponse.text,
+          timestamp: Date.now(),
+          agentColor: targetAgent.color,
+        };
+        allMessages = [...allMessages, responseMsg];
+        queryClient.setQueryData<ChatMessage[]>(['allMessages'], allMessages);
+      }
+
+      return data;
     },
   });
 }
+
+// ── Find target agent from @mention or content domain ──
+
+const AGENT_DOMAINS: Record<string, string[]> = {
+  Chief: ['task', 'priority', 'standup', 'meeting', 'schedule', 'deadline', 'plan', 'coordinate', 'delegate', 'assign'],
+  Hawk: ['code', 'review', 'security', 'bug', 'vulnerability', 'test', 'audit', 'PR', 'commit', 'smart contract', 'solidity'],
+  Radar: ['research', 'documentation', 'dependency', 'CVE', 'breaking change', 'migration', 'tutorial', 'github'],
+  'Bounty Hunter': ['hackathon', 'bounty', 'grant', 'opportunity', 'job', 'freelance', 'competition', 'prize'],
+  Buddy: ['food', 'lunch', 'dinner', 'restaurant', 'hotel', 'break', 'rest', 'wellness', 'coffee', 'snack', 'exercise', 'stretch', 'morale', 'celebrate', 'location', 'cafe', 'pizza', 'recommend'],
+};
+
+function findTargetAgent(content: string, agents: AgentInfo[]): AgentInfo {
+  // Check @mention first
+  const mention = content.match(/@(\w[\w\s]*?)(?=\s|$)/);
+  if (mention) {
+    const name = mention[1].trim().toLowerCase();
+    const found = agents.find((a) => a.name.toLowerCase() === name);
+    if (found) return found;
+  }
+
+  // Check if agent name appears in text (without @)
+  const lower = content.toLowerCase();
+  for (const agent of agents) {
+    if (lower.includes(agent.name.toLowerCase())) return agent;
+  }
+
+  // Match content against agent domains
+  let bestAgent: AgentInfo | null = null;
+  let bestScore = 0;
+  for (const agent of agents) {
+    const keywords = AGENT_DOMAINS[agent.name] || [];
+    const score = keywords.filter((kw) => lower.includes(kw.toLowerCase())).length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestAgent = agent;
+    }
+  }
+  if (bestAgent && bestScore > 0) return bestAgent;
+
+  // Default to Chief only if connected, otherwise first connected agent
+  return agents.find((a) => a.name === 'Chief') || agents[0];
+}
+
+// ── Agent States ──
 
 export function useAgentStates() {
   return useQuery<AgentState[]>({
@@ -123,36 +209,4 @@ export function useAgentStates() {
     queryFn: getAgentStates,
     refetchInterval: 3_000,
   });
-}
-
-// Track if any agent is "typing" (processing a response)
-export function useTypingAgents(channelId: string | null | undefined) {
-  const [typing, setTyping] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (!channelId) return;
-
-    // TODO: track via messageStreamChunk events
-    // For now, this is a placeholder
-    return () => setTyping(new Set());
-  }, [channelId]);
-
-  return typing;
-}
-
-function normalizeMessage(msg: any, agentMap: Map<string, string>): ChatMessage {
-  const authorId = msg.authorId || msg.author_id || msg.senderId || '';
-  const agentName = msg.metadata?.agentName || msg.senderName || agentMap.get(authorId) || '';
-  const isAgent = !!agentName && agentName !== 'You';
-  const content = typeof msg.content === 'string' ? msg.content : msg.content?.text || msg.text || '';
-
-  return {
-    id: msg.id || msg.messageId || `${authorId}-${msg.createdAt || Date.now()}`,
-    authorId,
-    authorName: isAgent ? agentName : 'You',
-    isAgent,
-    content,
-    timestamp: msg.createdAt || msg.timestamp || Date.now(),
-    agentColor: isAgent ? getAgentColor(agentName) : undefined,
-  };
 }

@@ -31,18 +31,7 @@ function saveTasks(tasks: Task[]): void {
 }
 
 function getDefaultTasks(): Task[] {
-  const now = Date.now();
-  return [
-    { id: '1', title: 'Set up ElizaOS v2 monorepo', status: 'done', priority: 'P0', assignee: 'Chief', createdAt: now, updatedAt: now },
-    { id: '2', title: 'Write agent character files', status: 'done', priority: 'P0', assignee: 'Chief', createdAt: now, updatedAt: now },
-    { id: '3', title: 'Build Docker + deploy to Nosana', status: 'done', priority: 'P0', assignee: 'Chief', createdAt: now, updatedAt: now },
-    { id: '4', title: 'Review smart contract security', status: 'in_progress', priority: 'P1', assignee: 'Hawk', createdAt: now, updatedAt: now },
-    { id: '5', title: 'Research ElizaOS plugin patterns', status: 'in_progress', priority: 'P1', assignee: 'Radar', createdAt: now, updatedAt: now },
-    { id: '6', title: 'Scan hackathon opportunities', status: 'todo', priority: 'P2', assignee: 'Bounty Hunter', createdAt: now, updatedAt: now },
-    { id: '7', title: 'Set up break reminders', status: 'todo', priority: 'P3', assignee: 'Buddy', createdAt: now, updatedAt: now },
-    { id: '8', title: 'Implement onboarding flow', status: 'todo', priority: 'P1', assignee: 'Chief', createdAt: now, updatedAt: now },
-    { id: '9', title: 'Add test coverage for agents', status: 'review', priority: 'P2', assignee: 'Hawk', createdAt: now, updatedAt: now },
-  ];
+  return [];
 }
 
 // Reactive store with listeners

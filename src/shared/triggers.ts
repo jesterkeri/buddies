@@ -1,12 +1,10 @@
 // Inter-agent trigger definitions
-// When one agent completes an action, these rules define which agents should be notified
-// The notification happens via the shouldRespondTemplate — agents see each other's messages
-// on the MESSAGE-BUS and decide to respond based on domain relevance.
-//
-// These triggers provide ADDITIONAL context via the agentStateProvider so agents
-// know when to proactively jump in.
+// When one agent completes an action, these rules define which agents should be notified.
+// Triggers now send actual messages to the team channel, which causes ElizaOS to evaluate
+// shouldRespond for all other agents — enabling real agent-to-agent conversation chains.
 
 import { agentStateManager, AgentStatus } from './agent-state.ts';
+import { sendAgentMessage } from './agent-messenger.ts';
 import { logger } from '@elizaos/core';
 
 export interface Trigger {
@@ -50,8 +48,22 @@ export const TRIGGERS: Trigger[] = [
   },
 ];
 
-// Fire a trigger — sets target agents to appropriate states
-export function fireTrigger(sourceAgent: string, sourceAction: string): void {
+// Map trigger actions to contextual messages from the source agent
+const TRIGGER_MESSAGES: Record<string, string> = {
+  'Bounty Hunter:SCAN_OPPORTUNITIES':
+    'Team, I found new opportunities that match our profile. @Chief, do we have bandwidth to take any of these on?',
+  'Hawk:REVIEW_CODE':
+    'Flagging code review findings — there are issues that need attention. @Chief, this may need reprioritization. @Radar, check for related CVEs.',
+  'Radar:CHECK_DEPENDENCIES':
+    'Dependency alert — found updates that need attention. @Chief, adding remediation to the board. @Hawk, scan affected files for vulnerabilities.',
+  'Buddy:CHECK_WELLNESS':
+    "Hey team! 🌟 Our dev has been going hard for a while. @Chief, can we find a natural stopping point soon? Everyone deserves a breather!",
+  'Chief:CALL_MEETING':
+    'Calling a team meeting. All agents, gather up — status updates please. @Hawk @Radar @Bounty Hunter @Buddy, sound off.',
+};
+
+// Fire a trigger — sets target agents to appropriate states AND sends a message
+export async function fireTrigger(sourceAgent: string, sourceAction: string): Promise<void> {
   const matching = TRIGGERS.filter(
     (t) => t.sourceAgent === sourceAgent && t.sourceAction === sourceAction
   );
@@ -62,7 +74,7 @@ export function fireTrigger(sourceAgent: string, sourceAction: string): void {
     for (const target of trigger.targetAgents) {
       const currentState = agentStateManager.getState(target);
       // Only activate if the target is idle (don't interrupt active work)
-      if (!currentState || currentState.status === 'IDLE') {
+      if (!currentState || currentState.status === AgentStatus.IDLE) {
         agentStateManager.setState(target, AgentStatus.WORKING, `Responding to ${sourceAgent}`);
 
         // Reset to idle after a delay (simulates processing time)
@@ -90,6 +102,14 @@ export function fireTrigger(sourceAgent: string, sourceAction: string): void {
         }
         logger.info('[BUDDIES] Meeting ended');
       }, 30_000);
+    }
+
+    // Send a message from the source agent to the team channel
+    // This triggers ElizaOS shouldRespond evaluation for all other agents
+    const messageKey = `${sourceAgent}:${sourceAction}`;
+    const messageText = TRIGGER_MESSAGES[messageKey];
+    if (messageText) {
+      await sendAgentMessage(sourceAgent, messageText);
     }
   }
 }

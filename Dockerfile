@@ -21,13 +21,17 @@ RUN bun install --frozen-lockfile || bun install
 
 COPY . .
 
+# Build backend
+RUN bun run build
+
 # Build frontend and replace built-in ElizaOS client
 RUN cd frontend && bun install && bun run build
 RUN cp -r frontend/dist/* node_modules/@elizaos/server/dist/client/ || true
 
 RUN mkdir -p /app/data
 
-EXPOSE 3000
+# ElizaOS on 3000, config server on 3001
+EXPOSE 3000 3001
 
 ENV NODE_ENV=production
 ENV SERVER_PORT=3000

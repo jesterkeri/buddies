@@ -119,8 +119,9 @@ body {
 }
 
 .panel-terminal .panel-header {
-  background-color: var(--color-yellow);
-  color: var(--color-ink);
+  background-color: #111;
+  color: var(--color-paper);
+  border-bottom: 2px solid rgba(242,244,243,0.15);
 }
 
 /* Blinking cursor */

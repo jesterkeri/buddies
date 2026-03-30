@@ -107,110 +107,36 @@ export default function SettingsPage() {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="grid grid-cols-2 gap-6" style={{ maxWidth: '100%' }}>
 
-          {/* Left column: AI Config */}
+          {/* Left column: Per-Agent AI Config */}
           <div className="space-y-4">
             {/* AI Config Header */}
             <div className="panel p-3 border-2 border-[--color-ink]" style={{ backgroundColor: '#E41937' }}>
-              <p className="font-display text-lg text-white">AI MODELS</p>
+              <p className="font-display text-lg text-white">AGENT AI CONFIG</p>
               <p className="text-[10px] font-mono text-white/60 mt-0.5">
-                Connect LLM providers to power your agents
+                Pick a provider, model, and API key for each agent
               </p>
             </div>
 
-            {/* Default Provider */}
-            <div className="border-2 border-[--color-ink] shadow-[3px_3px_0px_var(--color-ink)] overflow-hidden" style={{ backgroundColor: '#1a1d27' }}>
-              <div className="px-3 py-2 border-b-2 border-[--color-ink]" style={{ backgroundColor: '#0a0a0a' }}>
-                <span className="font-display text-sm" style={{ color: '#F9D616' }}>DEFAULT PROVIDER</span>
-                <p className="text-[9px] font-mono text-white/30">All agents use this unless overridden below</p>
-              </div>
-              <div className="p-3 space-y-2">
-                <div className="grid grid-cols-2 gap-1.5">
-                  {AI_PROVIDERS.map((p) => {
-                    const isSelected = settings.aiConfig.defaultProvider === p.value;
-                    return (
-                      <button
-                        key={p.value}
-                        onClick={() => updateAiConfig({
-                          defaultProvider: p.value,
-                          defaultApiUrl: p.url,
-                          defaultModel: p.models[0],
-                          defaultApiKey: p.needsKey ? settings.aiConfig.defaultApiKey : (p.value === 'nosana' ? 'nosana' : 'ollama'),
-                        })}
-                        className="p-2 text-left border-2 border-[--color-ink] transition-all"
-                        style={{
-                          backgroundColor: isSelected ? p.color : '#0a0a0a',
-                          color: isSelected ? '#0a0a0a' : '#F2F4F3',
-                          boxShadow: isSelected ? '2px 2px 0px #F9D616' : 'none',
-                          transform: isSelected ? 'translate(-1px, -1px)' : 'none',
-                        }}
-                      >
-                        <div className="text-sm font-display">{p.label}</div>
-                        <div className="text-xs font-mono" style={{ opacity: 0.6 }}>{p.desc}</div>
-                      </button>
-                    );
-                  })}
-                </div>
+            {/* Per-Agent Cards */}
+            {AGENT_NAMES.map((name) => {
+              const agentConfig = settings.aiConfig.perAgent[name];
+              const currentProvider = agentConfig?.provider || settings.aiConfig.defaultProvider;
+              const providerInfo = AI_PROVIDERS.find((p) => p.value === currentProvider);
+              const isExpanded = expandedAgent === name;
 
-                {/* API Key (if needed) */}
-                {AI_PROVIDERS.find((p) => p.value === settings.aiConfig.defaultProvider)?.needsKey && (
-                  <div>
-                    <label className="text-[11px] font-mono font-bold uppercase tracking-wider text-white/30 block mb-1">API KEY</label>
-                    <input
-                      type="password"
-                      value={settings.aiConfig.defaultApiKey}
-                      onChange={(e) => updateAiConfig({ defaultApiKey: e.target.value })}
-                      placeholder="Enter API key..."
-                      className="w-full px-2.5 py-1.5 text-[11px] font-mono border-2 border-white/15 bg-black/30 text-white placeholder-white/20 focus:outline-none focus:border-white/30"
-                    />
-                  </div>
-                )}
-
-                {/* Model selector */}
-                <div>
-                  <label className="text-[11px] font-mono font-bold uppercase tracking-wider text-white/30 block mb-1">MODEL</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(AI_PROVIDERS.find((p) => p.value === settings.aiConfig.defaultProvider)?.models || []).map((m) => (
-                      <button
-                        key={m}
-                        onClick={() => updateAiConfig({ defaultModel: m })}
-                        className="px-3 py-1.5 text-xs font-mono font-bold border-2 border-[--color-ink] transition-all"
-                        style={{
-                          backgroundColor: settings.aiConfig.defaultModel === m ? '#F9D616' : '#0a0a0a',
-                          color: settings.aiConfig.defaultModel === m ? '#0a0a0a' : '#F2F4F3',
-                          boxShadow: settings.aiConfig.defaultModel === m ? '2px 2px 0px #0a0a0a' : 'none',
-                        }}
-                      >
-                        {m}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Per-Agent Overrides */}
-            <div className="border-2 border-[--color-ink] shadow-[3px_3px_0px_var(--color-ink)] overflow-hidden" style={{ backgroundColor: '#1a1d27' }}>
-              <div className="px-3 py-2 border-b-2 border-[--color-ink]" style={{ backgroundColor: '#0a0a0a' }}>
-                <span className="font-display text-sm" style={{ color: '#2BB6B3' }}>PER-AGENT OVERRIDES</span>
-                <p className="text-[9px] font-mono text-white/30">Give specific agents different models</p>
-              </div>
-              <div className="p-2 space-y-1">
-                {AGENT_NAMES.map((name) => {
-                  const agentConfig = settings.aiConfig.perAgent[name];
-                  const hasOverride = agentConfig && agentConfig.provider;
-                  return (
-                    <AgentModelRow
-                      key={name}
-                      name={name}
-                      hasOverride={!!hasOverride}
-                      config={agentConfig}
-                      defaultProvider={settings.aiConfig.defaultProvider}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-
+              return (
+                <AgentModelCard
+                  key={name}
+                  name={name}
+                  config={agentConfig}
+                  currentProvider={currentProvider}
+                  providerInfo={providerInfo}
+                  isExpanded={isExpanded}
+                  onToggle={() => setExpandedAgent(isExpanded ? null : name)}
+                  defaultApiKey={settings.aiConfig.defaultApiKey}
+                />
+              );
+            })}
           </div>
 
           {/* Right column: Messaging + Notifications */}
@@ -367,82 +293,150 @@ export default function SettingsPage() {
   );
 }
 
-function AgentModelRow({ name, hasOverride, config, defaultProvider }: {
+const AGENT_ROLES: Record<string, string> = {
+  Chief: 'Team Lead',
+  Hawk: 'Code Reviewer',
+  Radar: 'Scout',
+  'Bounty Hunter': 'Opportunity Scanner',
+  Buddy: 'Wellness Agent',
+};
+
+function AgentModelCard({ name, config, currentProvider, providerInfo, isExpanded, onToggle, defaultApiKey }: {
   name: string;
-  hasOverride: boolean;
   config?: { provider: string; apiKey: string; apiUrl: string; model: string };
-  defaultProvider: string;
+  currentProvider: string;
+  providerInfo?: typeof AI_PROVIDERS[number];
+  isExpanded: boolean;
+  onToggle: () => void;
+  defaultApiKey: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const color = getAgentColor(name);
-  const currentProvider = hasOverride ? config?.provider : defaultProvider;
+  const hasConfig = config?.provider && config.provider !== '' && config.provider !== 'none';
+  const isDisconnected = config?.provider === 'none';
+  const activeApiKey = config?.apiKey || defaultApiKey;
+  const needsKey = providerInfo?.needsKey;
+  const isReady = !isDisconnected && (!needsKey || (activeApiKey && activeApiKey.length > 5));
 
   return (
-    <div className="border-2 border-[--color-ink] overflow-hidden" style={{ borderLeftWidth: '4px', borderLeftColor: color }}>
+    <div
+      className="border-2 border-[--color-ink] shadow-[3px_3px_0px_var(--color-ink)] overflow-hidden"
+      style={{ backgroundColor: '#1a1d27', borderLeftWidth: '5px', borderLeftColor: color }}
+    >
+      {/* Agent header */}
       <div
-        className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-white/5 transition-all"
+        className="flex items-center justify-between px-3 py-3 cursor-pointer hover:bg-white/5 transition-all"
         style={{ backgroundColor: '#0a0a0a' }}
-        onClick={() => setExpanded(!expanded)}
+        onClick={onToggle}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <div
-            className="w-6 h-6 border-2 border-[--color-ink] flex items-center justify-center text-[9px] font-display"
-            style={{ backgroundColor: color, color: '#0a0a0a' }}
+            className="w-9 h-9 border-2 border-[--color-ink] flex items-center justify-center text-sm font-display shrink-0"
+            style={{ backgroundColor: color, color: '#0a0a0a', boxShadow: '2px 2px 0px #0a0a0a' }}
           >
             {name[0]}
           </div>
-          <span className="text-[11px] font-display text-white tracking-wider">{name.toUpperCase()}</span>
+          <div>
+            <span className="text-sm font-display text-white tracking-wider">{name.toUpperCase()}</span>
+            <p className="text-[9px] font-mono text-white/30">{AGENT_ROLES[name] || 'Agent'}</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[9px] font-mono" style={{ color: hasOverride ? color : 'rgba(255,255,255,0.3)' }}>
-            {hasOverride ? config?.provider?.toUpperCase() : 'DEFAULT'}
+          {isReady && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                updateAgentModel(name, { provider: 'none', apiKey: '', apiUrl: '', model: '' });
+              }}
+              className="px-2 py-0.5 text-[9px] font-display uppercase border-2 border-[#E41937] hover:bg-[#E41937] hover:text-white transition-all"
+              style={{ color: '#E41937', backgroundColor: 'rgba(228,25,55,0.1)' }}
+            >
+              DISCONNECT
+            </button>
+          )}
+          <span
+            className="px-2 py-0.5 text-[9px] font-mono font-bold border-2 border-[--color-ink]"
+            style={{
+              backgroundColor: isReady ? (providerInfo?.color || '#333') : '#E41937',
+              color: '#0a0a0a',
+            }}
+          >
+            {isReady ? (currentProvider?.toUpperCase() || 'OLLAMA') : 'NO KEY'}
           </span>
-          <span className="text-[10px] text-white/30">{expanded ? '▾' : '▸'}</span>
+          <span className="text-[12px] text-white/40">{isExpanded ? '▾' : '▸'}</span>
         </div>
       </div>
 
-      {expanded && (
-        <div className="px-3 py-2 space-y-2" style={{ backgroundColor: '#111' }}>
-          <div className="flex flex-wrap gap-1">
-            <button
-              onClick={() => updateAgentModel(name, { provider: '' })}
-              className="px-2 py-0.5 text-[9px] font-mono font-bold border border-white/20 transition-all"
-              style={{
-                backgroundColor: !hasOverride ? '#F9D616' : 'transparent',
-                color: !hasOverride ? '#0a0a0a' : 'rgba(255,255,255,0.4)',
-              }}
-            >
-              USE DEFAULT
-            </button>
-            {AI_PROVIDERS.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => updateAgentModel(name, {
-                  provider: p.value,
-                  apiUrl: p.url,
-                  model: p.models[0],
-                  apiKey: p.needsKey ? '' : (p.value === 'nosana' ? 'nosana' : 'ollama'),
-                })}
-                className="px-2 py-0.5 text-[9px] font-mono font-bold border border-white/20 transition-all"
-                style={{
-                  backgroundColor: config?.provider === p.value ? p.color : 'transparent',
-                  color: config?.provider === p.value ? '#0a0a0a' : 'rgba(255,255,255,0.4)',
-                }}
-              >
-                {p.label}
-              </button>
-            ))}
+      {/* Expanded config */}
+      {isExpanded && (
+        <div className="px-3 py-3 space-y-3" style={{ backgroundColor: '#111' }}>
+          {/* Provider grid */}
+          <div>
+            <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-white/30 block mb-1.5">PROVIDER</label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {AI_PROVIDERS.map((p) => {
+                const isSelected = currentProvider === p.value;
+                return (
+                  <button
+                    key={p.value}
+                    onClick={() => updateAgentModel(name, {
+                      provider: p.value,
+                      apiUrl: p.url,
+                      model: p.models[0],
+                      apiKey: p.needsKey ? (config?.apiKey || '') : (p.value === 'nosana' ? 'nosana' : 'ollama'),
+                    })}
+                    className="p-2 text-left border-2 border-[--color-ink] transition-all"
+                    style={{
+                      backgroundColor: isSelected ? p.color : '#0a0a0a',
+                      color: isSelected ? '#0a0a0a' : '#F2F4F3',
+                      boxShadow: isSelected ? `2px 2px 0px ${color}` : 'none',
+                      transform: isSelected ? 'translate(-1px, -1px)' : 'none',
+                    }}
+                  >
+                    <div className="text-[11px] font-display">{p.label}</div>
+                    <div className="text-[9px] font-mono" style={{ opacity: 0.6 }}>{p.desc}</div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {hasOverride && AI_PROVIDERS.find((p) => p.value === config?.provider)?.needsKey && (
-            <input
-              type="password"
-              value={config?.apiKey || ''}
-              onChange={(e) => updateAgentModel(name, { apiKey: e.target.value })}
-              placeholder="API key for this agent..."
-              className="w-full px-2 py-1 text-[10px] font-mono border border-white/15 bg-black/30 text-white placeholder-white/20 focus:outline-none"
-            />
+          {/* API Key */}
+          {providerInfo?.needsKey && (
+            <div>
+              <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-white/30 block mb-1">API KEY</label>
+              <input
+                type="password"
+                value={config?.apiKey || ''}
+                onChange={(e) => updateAgentModel(name, { apiKey: e.target.value })}
+                placeholder={`Enter ${providerInfo.label} API key for ${name}...`}
+                className="w-full px-2.5 py-1.5 text-[11px] font-mono border-2 border-white/15 bg-black/30 text-white placeholder-white/20 focus:outline-none focus:border-white/30"
+              />
+            </div>
           )}
+
+          {/* Model selector */}
+          <div>
+            <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-white/30 block mb-1">MODEL</label>
+            <div className="flex flex-wrap gap-1.5">
+              {(providerInfo?.models || []).map((m) => {
+                const isSelected = (config?.model || providerInfo?.models[0]) === m;
+                return (
+                  <button
+                    key={m}
+                    onClick={() => updateAgentModel(name, { model: m })}
+                    className="px-2.5 py-1 text-[10px] font-mono font-bold border-2 border-[--color-ink] transition-all"
+                    style={{
+                      backgroundColor: isSelected ? color : '#0a0a0a',
+                      color: isSelected ? '#0a0a0a' : '#F2F4F3',
+                      boxShadow: isSelected ? '2px 2px 0px #0a0a0a' : 'none',
+                    }}
+                  >
+                    {m}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -5,3 +5,8 @@ export { mentionProvider } from './mention-provider.ts';
 export { getShouldRespondTemplate } from './should-respond.ts';
 export { getTeamChannelId, bootstrapTeamChannel } from './team-channel.ts';
 export { fireTrigger, TRIGGERS } from './triggers.ts';
+export { sendAgentMessage } from './agent-messenger.ts';
+export { startAutonomousLoops, stopAutonomousLoops } from './autonomous-loops.ts';
+export { loadAiConfig, saveAiConfig, invalidateAiConfigCache, getAgentSecrets, getAgentPlugin, isAgentDisconnected } from './ai-config.ts';
+export { connectionStatusProvider } from './connection-provider.ts';
+export { shouldAgentRespond } from './should-respond.ts';

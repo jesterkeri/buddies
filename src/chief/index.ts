@@ -2,20 +2,16 @@ import type { Character, IAgentRuntime, ProjectAgent } from '@elizaos/core';
 import { initCharacter } from '../init.ts';
 import chiefPlugin from './plugins/chief/index.ts';
 import { buddiesPlugin, getShouldRespondTemplate } from '../shared/index.ts';
+import { getAgentSecrets, getAgentPlugins } from '../shared/ai-config.ts';
 
 const character: Character = {
   name: 'Chief',
   plugins: [
     '@elizaos/plugin-sql',
-    '@elizaos/plugin-ollama',
+    ...getAgentPlugins('Chief'),
     '@elizaos/plugin-bootstrap',
   ],
-  secrets: {
-    OLLAMA_API_ENDPOINT: process.env.CHIEF_OLLAMA_API_ENDPOINT || process.env.OLLAMA_API_ENDPOINT || 'http://127.0.0.1:11434/api',
-    OLLAMA_SMALL_MODEL: process.env.CHIEF_OLLAMA_SMALL_MODEL || process.env.OLLAMA_SMALL_MODEL || process.env.SMALL_MODEL || 'qwen3-nothink',
-    OLLAMA_LARGE_MODEL: process.env.CHIEF_OLLAMA_LARGE_MODEL || process.env.OLLAMA_LARGE_MODEL || process.env.LARGE_MODEL || 'qwen3-nothink',
-    OLLAMA_EMBEDDING_MODEL: process.env.CHIEF_OLLAMA_EMBEDDING_MODEL || process.env.OLLAMA_EMBEDDING_MODEL || 'nomic-embed-text:latest',
-  },
+  secrets: getAgentSecrets('Chief'),
   templates: {
     shouldRespondTemplate: getShouldRespondTemplate('Chief'),
   },

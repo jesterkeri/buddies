@@ -6,9 +6,10 @@ import TypingIndicator from './TypingIndicator';
 interface MessageListProps {
   messages: ChatMessage[];
   isLoading: boolean;
+  onReply?: (message: ChatMessage) => void;
 }
 
-export default function MessageList({ messages, isLoading }: MessageListProps) {
+export default function MessageList({ messages, isLoading, onReply }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
 
@@ -45,13 +46,13 @@ export default function MessageList({ messages, isLoading }: MessageListProps) {
       {messages.length === 0 && (
         <div className="flex items-center justify-center h-full">
           <div className="text-center px-8">
-            <p className="font-display text-2xl text-[--color-yellow]" style={{ transform: 'rotate(-2deg)' }}>
+            <p className="font-display text-2xl" style={{ color: '#F9D616', transform: 'rotate(-2deg)' }}>
               CHANNEL OPEN
             </p>
-            <p className="font-mono text-xs text-[--color-paper]/40 mt-3 leading-relaxed">
+            <p className="font-mono text-xs mt-3 leading-relaxed" style={{ color: 'rgba(242,244,243,0.4)' }}>
               // TEAM_COMMS initialized<br />
               // 5 agents standing by<br />
-              // Type a message to begin transmission<br />
+              // Type a message below to begin<br />
               // Use @AgentName to address specific agent
             </p>
           </div>
@@ -65,7 +66,7 @@ export default function MessageList({ messages, isLoading }: MessageListProps) {
           prev.authorId !== msg.authorId ||
           msg.timestamp - prev.timestamp > 120_000;
 
-        return <MessageBubble key={msg.id} message={msg} showHeader={showHeader} />;
+        return <MessageBubble key={msg.id} message={msg} showHeader={showHeader} onReply={onReply} />;
       })}
 
       <TypingIndicator />

@@ -60,15 +60,8 @@ export async function bootstrapTeamChannel(_runtime: IAgentRuntime): Promise<voi
       logger.warn('[BUDDIES] Not all agents registered, proceeding with available agents');
     }
 
-    // Get the current message server
-    const serverRes = await apiCall('/api/messaging/message-servers/current');
-    const messageServerId = serverRes?.data?.id || serverRes?.id || serverRes?.messageServerId;
-
-    if (!messageServerId) {
-      logger.warn('[BUDDIES] No message server found, skipping team channel bootstrap');
-      bootstrapInProgress = false;
-      return;
-    }
+    // Use the default message server
+    const messageServerId = '00000000-0000-0000-0000-000000000000';
 
     // Check if team channel already exists
     const channelsRes = await apiCall(`/api/messaging/message-servers/${messageServerId}/channels`);
@@ -86,13 +79,21 @@ export async function bootstrapTeamChannel(_runtime: IAgentRuntime): Promise<voi
       return;
     }
 
-    // Create the team channel
+    // Get all agent IDs first (needed for channel creation)
+    const agentsRes = await apiCall('/api/agents');
+    const agents = agentsRes?.data?.agents || agentsRes?.agents || agentsRes?.data || [];
+    const agentIds = Array.isArray(agents)
+      ? agents.map((a: any) => a.id || a.agentId).filter(Boolean)
+      : [];
+
+    // Create the team channel with all agents as participants
     const createRes = await apiCall('/api/messaging/channels', {
       method: 'POST',
       body: JSON.stringify({
         name: TEAM_CHANNEL_NAME,
         type: 'GROUP',
-        messageServerId,
+        message_server_id: messageServerId,
+        participantCentralUserIds: agentIds,
         metadata: {
           description: 'Buddies team chat — all 5 agents collaborate here',
           topic: 'Team Collaboration',
@@ -108,26 +109,17 @@ export async function bootstrapTeamChannel(_runtime: IAgentRuntime): Promise<voi
       return;
     }
 
-    logger.info(`[BUDDIES] Team channel created: ${teamChannelId}`);
+    logger.info(`[BUDDIES] Team channel created: ${teamChannelId} with ${agentIds.length} agents`);
 
-    // Get all agents and add them to the channel
-    const agentsRes = await apiCall('/api/agents');
-    const agents = agentsRes?.data?.agents || agentsRes?.agents || agentsRes?.data || [];
-
-    if (Array.isArray(agents)) {
-      for (const agent of agents) {
-        const agentId = agent.id || agent.agentId;
-        if (agentId) {
-          try {
-            await apiCall(`/api/messaging/channels/${teamChannelId}/agents`, {
-              method: 'POST',
-              body: JSON.stringify({ agentId }),
-            });
-            logger.info(`[BUDDIES] Added agent ${agent.name || agentId} to team channel`);
-          } catch {
-            // Agent might already be a participant
-          }
-        }
+    // Also add agents individually (ensures they're registered as channel participants)
+    for (const agentId of agentIds) {
+      try {
+        await apiCall(`/api/messaging/channels/${teamChannelId}/agents`, {
+          method: 'POST',
+          body: JSON.stringify({ agentId }),
+        });
+      } catch {
+        // Agent might already be a participant
       }
     }
 
