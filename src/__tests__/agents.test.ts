@@ -22,7 +22,11 @@ describe('Buddies Multi-Agent Project', () => {
     for (const agent of project.agents) {
       expect(agent.character.plugins).toContain('@elizaos/plugin-bootstrap');
       expect(agent.character.plugins).toContain('@elizaos/plugin-sql');
-      expect(agent.character.plugins).toContain('@elizaos/plugin-ollama');
+      // Agents use either plugin-ollama or plugin-openai depending on config
+      const hasLLMPlugin = agent.character.plugins!.some(
+        (p) => p === '@elizaos/plugin-ollama' || p === '@elizaos/plugin-openai'
+      );
+      expect(hasLLMPlugin).toBe(true);
     }
   });
 

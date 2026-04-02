@@ -1,21 +1,45 @@
 import { createServer } from 'http';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { join } from 'path';
 import { logger } from '@elizaos/core';
 import { loadAiConfig, saveAiConfig, invalidateAiConfigCache } from './ai-config.ts';
 
 const CONFIG_PORT = 3001;
+const SESSION_PATH = join(process.cwd(), '.buddies-session-config.json');
+const TASKS_PATH = join(process.cwd(), '.buddies-tasks.json');
 let started = false;
 
+function loadSession(): any {
+  try {
+    if (existsSync(SESSION_PATH)) return JSON.parse(readFileSync(SESSION_PATH, 'utf-8'));
+  } catch {}
+  return {};
+}
+
+function saveSession(data: any): void {
+  writeFileSync(SESSION_PATH, JSON.stringify(data, null, 2));
+}
+
+// Expose for other modules to read GitHub config
+export function getSessionConfig(): { githubToken: string; repoUrl: string; repoConnected: boolean; repoFullName: string } {
+  const d = loadSession();
+  return {
+    githubToken: d.githubToken || '',
+    repoUrl: d.repoUrl || '',
+    repoConnected: d.repoConnected || false,
+    repoFullName: d.repoFullName || '',
+  };
+}
+
 /**
- * Tiny standalone HTTP server for AI config management.
+ * Standalone HTTP server for config + session management.
  * Runs on port 3001 alongside ElizaOS (port 3000).
- * The frontend calls this directly to save/load config.
  */
 export function startConfigServer(): void {
   if (started) return;
   started = true;
 
   const server = createServer((req, res) => {
-    // CORS headers for frontend
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -27,7 +51,7 @@ export function startConfigServer(): void {
       return;
     }
 
-    // GET /config — read current config
+    // ── AI Config ──
     if (req.method === 'GET' && req.url === '/config') {
       const config = loadAiConfig();
       res.writeHead(200);
@@ -35,7 +59,6 @@ export function startConfigServer(): void {
       return;
     }
 
-    // POST /config — save config
     if (req.method === 'POST' && req.url === '/config') {
       let body = '';
       req.on('data', (chunk) => { body += chunk; });
@@ -45,9 +68,69 @@ export function startConfigServer(): void {
           saveAiConfig(config);
           invalidateAiConfigCache();
           res.writeHead(200);
-          res.end(JSON.stringify({ success: true, message: 'Config saved. Restart to apply new providers.' }));
+          res.end(JSON.stringify({ success: true, message: 'Config saved.' }));
           logger.info('[BUDDIES] AI config saved via config server');
-        } catch (err) {
+        } catch {
+          res.writeHead(400);
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+
+    // ── Session (GitHub + project tracking) ──
+    if (req.method === 'GET' && req.url === '/session') {
+      res.writeHead(200);
+      res.end(JSON.stringify({ success: true, data: loadSession() }));
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/session') {
+      let body = '';
+      req.on('data', (chunk) => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          saveSession(data);
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, message: 'Session config saved.' }));
+          logger.info('[BUDDIES] Session config saved (repo: ' + (data.repoFullName || 'none') + ')');
+        } catch {
+          res.writeHead(400);
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+
+    // ── Tasks ──
+    if (req.method === 'GET' && req.url === '/tasks') {
+      try {
+        if (existsSync(TASKS_PATH)) {
+          const tasks = JSON.parse(readFileSync(TASKS_PATH, 'utf-8'));
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, data: tasks }));
+        } else {
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, data: [] }));
+        }
+      } catch {
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: [] }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/tasks') {
+      let body = '';
+      req.on('data', (chunk) => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const tasks = JSON.parse(body);
+          writeFileSync(TASKS_PATH, JSON.stringify(tasks, null, 2));
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true }));
+        } catch {
           res.writeHead(400);
           res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
         }

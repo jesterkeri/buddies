@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { Task, TaskStatus } from './taskStore';
+import { moveTask } from './taskStore';
 import TaskCard from './TaskCard';
 
 const COLUMN_CONFIG: Record<TaskStatus, { label: string; bg: string; text: string; cardBg: string }> = {
@@ -15,9 +17,34 @@ interface TaskColumnProps {
 
 export default function TaskColumn({ status, tasks }: TaskColumnProps) {
   const config = COLUMN_CONFIG[status];
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const taskId = e.dataTransfer.getData('taskId');
+    if (taskId) {
+      moveTask(taskId, status);
+    }
+  };
 
   return (
-    <div className="flex flex-col min-w-0">
+    <div
+      className="flex flex-col min-w-0"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {/* Column header */}
       <div
         className="flex items-center justify-between px-3 py-2.5 border-2 border-[--color-ink] shadow-[2px_2px_0px_var(--color-ink)] font-display text-base tracking-wider mb-3"
@@ -29,14 +56,23 @@ export default function TaskColumn({ status, tasks }: TaskColumnProps) {
         </span>
       </div>
 
-      {/* Task cards */}
-      <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+      {/* Drop zone */}
+      <div
+        className="flex-1 space-y-3 overflow-y-auto pr-1 transition-all rounded"
+        style={{
+          backgroundColor: dragOver ? `${config.bg}15` : 'transparent',
+          border: dragOver ? `2px dashed ${config.bg}` : '2px dashed transparent',
+          padding: dragOver ? '8px' : '0',
+        }}
+      >
         {tasks.map((task) => (
           <TaskCard key={task.id} task={task} cardBg={config.cardBg} />
         ))}
         {tasks.length === 0 && (
           <div className="text-center py-8 border-2 border-dashed border-[--color-paper]/10">
-            <p className="text-xs font-mono text-[--color-paper]/25">// EMPTY</p>
+            <p className="text-xs font-mono text-[--color-paper]/25">
+              {dragOver ? 'DROP HERE' : '// EMPTY'}
+            </p>
           </div>
         )}
       </div>

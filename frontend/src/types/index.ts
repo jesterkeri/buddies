@@ -33,7 +33,7 @@ export interface AgentState {
   lastUpdated: number;
 }
 
-export type TabId = 'chat' | 'office' | 'tasks' | 'activity' | 'connect';
+export type TabId = 'chat' | 'office' | 'tasks' | 'activity' | 'session' | 'connect';
 
 export function getAgentColor(name: string): string {
   return AGENT_COLORS[name] || '#64748b';

@@ -6,7 +6,8 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useCallback } from 'react';
+import { useMemo } from 'react';
+import { pushEvent } from '../components/activity/activityStore';
 import {
   listAgents,
   createAgentSession,
@@ -152,6 +153,9 @@ export function useSendMessage(_channelId: string | null | undefined) {
         };
         allMessages = [...allMessages, responseMsg];
         queryClient.setQueryData<ChatMessage[]>(['allMessages'], allMessages);
+
+        // Log to Intel feed
+        pushEvent('message', targetAgent.name, agentResponse.text.slice(0, 100));
       }
 
       return data;

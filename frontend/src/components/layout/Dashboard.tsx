@@ -6,6 +6,7 @@ import ChatRoom from '../chat/ChatRoom';
 import PixelOffice from '../office/PixelOffice';
 import TaskBoard from '../tasks/TaskBoard';
 import ActivityFeed from '../activity/ActivityFeed';
+import SessionPage from '../session/SessionPage';
 import SettingsPage from '../settings/SettingsPage';
 
 export default function Dashboard() {
@@ -27,6 +28,7 @@ export default function Dashboard() {
           {activeTab === 'office' && <PixelOffice onAgentClick={handleAgentClick} />}
           {activeTab === 'tasks' && <TaskBoard />}
           {activeTab === 'activity' && <ActivityFeed />}
+          {activeTab === 'session' && <SessionPage />}
           {activeTab === 'connect' && <SettingsPage />}
         </main>
       </div>

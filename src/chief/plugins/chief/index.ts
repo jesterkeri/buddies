@@ -1,6 +1,9 @@
 import type { Plugin, Action } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
 import { fireTrigger } from '../../../shared/triggers.ts';
+import { projectContextProvider } from './providers/project-context.ts';
+import { generateStandup } from './actions/generate-standup.ts';
+import { draftPR } from './actions/draft-pr.ts';
 
 const assignTask: Action = {
   name: 'ASSIGN_TASK',
@@ -56,9 +59,9 @@ const callMeeting: Action = {
 
 const chiefPlugin: Plugin = {
   name: 'chief-plugin',
-  description: 'Team Lead capabilities — task management, coordination, scheduling',
-  actions: [assignTask, callMeeting],
-  providers: [],
+  description: 'Team Lead capabilities — task management, coordination, scheduling, standups, PR drafts',
+  actions: [assignTask, callMeeting, generateStandup, draftPR],
+  providers: [projectContextProvider],
   evaluators: [],
 };
 

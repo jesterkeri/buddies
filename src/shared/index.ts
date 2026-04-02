@@ -9,4 +9,7 @@ export { sendAgentMessage } from './agent-messenger.ts';
 export { startAutonomousLoops, stopAutonomousLoops } from './autonomous-loops.ts';
 export { loadAiConfig, saveAiConfig, invalidateAiConfigCache, getAgentSecrets, getAgentPlugin, isAgentDisconnected } from './ai-config.ts';
 export { connectionStatusProvider } from './connection-provider.ts';
+export { repoContextProvider } from './repo-provider.ts';
+export { getRepoContext, fetchFile } from './github-service.ts';
+export { getSessionConfig } from './config-server.ts';
 export { shouldAgentRespond } from './should-respond.ts';
