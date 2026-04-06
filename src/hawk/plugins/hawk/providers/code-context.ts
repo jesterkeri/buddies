@@ -1,5 +1,5 @@
 import type { Provider, IAgentRuntime, Memory, State } from '@elizaos/core';
-import { fetchFile, getRepoContext } from '../../../../shared/github-service.ts';
+import { fetchFile, getRepoContext, fetchCommits, getOpenPRNumbers } from '../../../../shared/github-service.ts';
 
 /**
  * Hawk's code context provider — fetches relevant code files from the connected repo
@@ -49,8 +49,25 @@ export const codeContextProvider: Provider = {
       }
     }
 
+    // Add recent commit activity
+    try {
+      const commits = await fetchCommits(5);
+      if (commits.length > 0) {
+        const commitList = commits.map((c) => `- \`${c.sha.slice(0, 7)}\` ${c.message.split('\n')[0]} (${c.author})`).join('\n');
+        sections.push(`### Recent Commits\n${commitList}`);
+      }
+    } catch {}
+
+    // Add open PR count
+    try {
+      const prs = await getOpenPRNumbers();
+      if (prs.length > 0) {
+        sections.push(`### Open PRs: ${prs.map((n) => `#${n}`).join(', ')}`);
+      }
+    } catch {}
+
     // If no specific files, get repo overview
-    if (sections.length === 0) {
+    if (sections.length <= 2) { // Only has commits/PRs, no actual code
       const repoCtx = await getRepoContext();
       if (repoCtx) {
         sections.push(repoCtx);

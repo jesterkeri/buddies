@@ -3,7 +3,7 @@ import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
 import { fireTrigger } from '../../../shared/triggers.ts';
 import { sendSecurityAlert, isTelegramConfigured } from '../../../shared/integrations/telegram.ts';
 import { codeContextProvider } from './providers/code-context.ts';
-import { fetchFile, getRepoContext } from '../../../shared/github-service.ts';
+import { fetchFile, getRepoContext, fetchCommitDiff, fetchPRFiles, fetchCommits } from '../../../shared/github-service.ts';
 import { securityAudit } from './actions/security-audit.ts';
 
 const reviewCode: Action = {
@@ -15,32 +15,73 @@ const reviewCode: Action = {
     agentStateManager.setState('Hawk', AgentStatus.REVIEWING, 'Code review');
 
     const text = (message.content?.text as string) || '';
-
-    // Try to extract file paths from the message
-    const filePatterns = text.match(/[`"']([^`"']+\.[a-z]{1,4})[`"']/gi) || [];
-    const filePaths = filePatterns.map((f) => f.replace(/[`"']/g, ''));
-
     let codeContext = '';
+    let reviewType = 'file';
 
-    // Fetch specific files if mentioned
-    for (const path of filePaths.slice(0, 3)) {
-      const content = await fetchFile(path);
-      if (content) {
-        codeContext += `\n### File: ${path}\n\`\`\`\n${content.slice(0, 2000)}\n\`\`\`\n`;
+    // 1. Check for PR number (#123)
+    const prMatch = text.match(/#(\d+)/);
+    if (prMatch) {
+      const prNumber = parseInt(prMatch[1]);
+      const files = await fetchPRFiles(prNumber);
+      if (files.length > 0) {
+        reviewType = 'pr';
+        const fileSummary = files.map((f) =>
+          `${f.status === 'added' ? '+' : f.status === 'removed' ? '-' : '~'} ${f.filename} (+${f.additions} -${f.deletions})`
+        ).join('\n');
+        const patches = files
+          .filter((f) => f.patch)
+          .slice(0, 5)
+          .map((f) => `### ${f.filename}\n\`\`\`diff\n${f.patch}\n\`\`\``)
+          .join('\n\n');
+        codeContext = `## PR #${prNumber} — ${files.length} files changed\n\n${fileSummary}\n\n${patches}`;
       }
     }
 
-    // If no specific files, get repo overview
+    // 2. Check for commit SHA (40-char hex or 7-char short)
+    if (!codeContext) {
+      const shaMatch = text.match(/\b([0-9a-f]{7,40})\b/);
+      if (shaMatch) {
+        const diff = await fetchCommitDiff(shaMatch[1]);
+        if (diff) {
+          reviewType = 'commit';
+          codeContext = `## Commit ${shaMatch[1].slice(0, 7)} diff\n\n\`\`\`diff\n${diff}\n\`\`\``;
+        }
+      }
+    }
+
+    // 3. Check for "latest" or "recent" — fetch latest commit diff
+    if (!codeContext && /latest|recent|last commit|new changes/i.test(text)) {
+      const commits = await fetchCommits(1);
+      if (commits.length > 0) {
+        const diff = await fetchCommitDiff(commits[0].sha);
+        if (diff) {
+          reviewType = 'commit';
+          codeContext = `## Latest commit: "${commits[0].message}" by ${commits[0].author}\n\n\`\`\`diff\n${diff}\n\`\`\``;
+        }
+      }
+    }
+
+    // 4. Check for file paths
+    if (!codeContext) {
+      const filePatterns = text.match(/[`"']([^`"']+\.[a-z]{1,4})[`"']/gi) || [];
+      const filePaths = filePatterns.map((f) => f.replace(/[`"']/g, ''));
+      for (const path of filePaths.slice(0, 3)) {
+        const content = await fetchFile(path);
+        if (content) {
+          codeContext += `\n### File: ${path}\n\`\`\`\n${content.slice(0, 2000)}\n\`\`\`\n`;
+        }
+      }
+    }
+
+    // 5. Fallback to repo overview
     if (!codeContext) {
       const repoCtx = await getRepoContext();
-      if (repoCtx) {
-        codeContext = repoCtx;
-      }
+      if (repoCtx) codeContext = repoCtx;
     }
 
     const reviewPrompt = codeContext
-      ? `Reviewing code from the connected repository:\n${codeContext}\n\nI'll check for security vulnerabilities, code quality, and suggest improvements with severity ratings (CRITICAL / HIGH / MEDIUM / LOW).`
-      : `I don't have access to the code yet. Either:\n1. Connect a GitHub repo in the Session tab\n2. Paste the code directly in the chat\n\nThen I'll review it for security, quality, and best practices.`;
+      ? `Reviewing ${reviewType === 'pr' ? 'pull request' : reviewType === 'commit' ? 'commit' : 'code'} from the connected repository:\n\n${codeContext}\n\nAnalyzing for: security vulnerabilities, code quality issues, potential bugs, and best practice violations. Rating each finding: CRITICAL / HIGH / MEDIUM / LOW.`
+      : `I need code to review. Either:\n1. Connect a GitHub repo in the Session tab\n2. Mention a PR like \`#123\`\n3. Say "review latest commit"\n4. Paste code directly`;
 
     if (callback) {
       await callback({
@@ -50,7 +91,7 @@ const reviewCode: Action = {
     }
 
     if (isTelegramConfigured() && codeContext) {
-      await sendSecurityAlert('MEDIUM', `Code review initiated: ${text.slice(0, 100)}`);
+      await sendSecurityAlert('MEDIUM', `Code review (${reviewType}): ${text.slice(0, 100)}`);
     }
 
     fireTrigger('Hawk', 'REVIEW_CODE');

@@ -158,6 +158,24 @@ export function startConfigServer(): void {
       return;
     }
 
+    // ── Code Reviews ──
+    if (req.method === 'GET' && req.url === '/reviews') {
+      const reviewsPath = join(DATA_DIR, '.buddies-reviews.json');
+      try {
+        if (existsSync(reviewsPath)) {
+          res.writeHead(200);
+          res.end(readFileSync(reviewsPath, 'utf-8'));
+        } else {
+          res.writeHead(200);
+          res.end('[]');
+        }
+      } catch {
+        res.writeHead(200);
+        res.end('[]');
+      }
+      return;
+    }
+
     // ── Autonomous Messages (agent-to-agent) ──
     if (req.method === 'GET' && req.url === '/autonomous-messages') {
       const msgsPath = join(DATA_DIR, '.buddies-autonomous-messages.json');

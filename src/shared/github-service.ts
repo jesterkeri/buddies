@@ -123,3 +123,152 @@ export async function fetchFile(path: string): Promise<string | null> {
     return null;
   }
 }
+
+// ── Commits & Diffs ──
+
+export interface CommitInfo {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+  filesChanged?: number;
+}
+
+/**
+ * Fetch recent commits from the connected repo.
+ */
+export async function fetchCommits(limit: number = 10): Promise<CommitInfo[]> {
+  const session = getSessionConfig();
+  if (!session.repoConnected || !session.githubToken || !session.repoUrl) return [];
+
+  const parsed = parseRepo(session.repoUrl);
+  if (!parsed) return [];
+
+  const cacheKey = `commits:${parsed.owner}/${parsed.repo}`;
+  const cached = getCached<CommitInfo[]>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const data = await ghFetch(`/repos/${parsed.owner}/${parsed.repo}/commits?per_page=${limit}`, session.githubToken);
+    const commits: CommitInfo[] = data.map((c: any) => ({
+      sha: c.sha,
+      message: c.commit?.message || '',
+      author: c.commit?.author?.name || c.author?.login || '',
+      date: c.commit?.author?.date || '',
+    }));
+    setCache(cacheKey, commits, 2 * 60 * 1000); // 2 min cache
+    return commits;
+  } catch (err) {
+    logger.error(`[GITHUB] Failed to fetch commits: ${err}`);
+    return [];
+  }
+}
+
+/**
+ * Fetch the diff for a specific commit.
+ */
+export async function fetchCommitDiff(sha: string): Promise<string> {
+  const session = getSessionConfig();
+  if (!session.repoConnected || !session.githubToken || !session.repoUrl) return '';
+
+  const parsed = parseRepo(session.repoUrl);
+  if (!parsed) return '';
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits/${sha}`, {
+      headers: {
+        Authorization: `token ${session.githubToken}`,
+        Accept: 'application/vnd.github.v3.diff',
+      },
+    });
+    if (!res.ok) return '';
+    const diff = await res.text();
+    return diff.slice(0, 5000); // Truncate for LLM context
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Fetch changed files and patches for a PR.
+ */
+export interface PRFile {
+  filename: string;
+  status: string; // added, removed, modified, renamed
+  additions: number;
+  deletions: number;
+  patch?: string; // unified diff for this file
+}
+
+export async function fetchPRFiles(prNumber: number): Promise<PRFile[]> {
+  const session = getSessionConfig();
+  if (!session.repoConnected || !session.githubToken || !session.repoUrl) return [];
+
+  const parsed = parseRepo(session.repoUrl);
+  if (!parsed) return [];
+
+  try {
+    const data = await ghFetch(`/repos/${parsed.owner}/${parsed.repo}/pulls/${prNumber}/files?per_page=30`, session.githubToken);
+    return data.map((f: any) => ({
+      filename: f.filename,
+      status: f.status,
+      additions: f.additions,
+      deletions: f.deletions,
+      patch: f.patch?.slice(0, 2000), // Truncate large diffs
+    }));
+  } catch (err) {
+    logger.error(`[GITHUB] Failed to fetch PR #${prNumber} files: ${err}`);
+    return [];
+  }
+}
+
+/**
+ * Fetch full unified diff for a PR.
+ */
+export async function fetchPRDiff(prNumber: number): Promise<string> {
+  const session = getSessionConfig();
+  if (!session.repoConnected || !session.githubToken || !session.repoUrl) return '';
+
+  const parsed = parseRepo(session.repoUrl);
+  if (!parsed) return '';
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/pulls/${prNumber}`, {
+      headers: {
+        Authorization: `token ${session.githubToken}`,
+        Accept: 'application/vnd.github.v3.diff',
+      },
+    });
+    if (!res.ok) return '';
+    const diff = await res.text();
+    return diff.slice(0, 8000); // Larger limit for PR diffs
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Get the latest commit SHA (used for polling new commits).
+ */
+export async function getLatestCommitSHA(): Promise<string | null> {
+  const commits = await fetchCommits(1);
+  return commits.length > 0 ? commits[0].sha : null;
+}
+
+/**
+ * Get open PR numbers (used for polling new PRs).
+ */
+export async function getOpenPRNumbers(): Promise<number[]> {
+  const session = getSessionConfig();
+  if (!session.repoConnected || !session.githubToken || !session.repoUrl) return [];
+
+  const parsed = parseRepo(session.repoUrl);
+  if (!parsed) return [];
+
+  try {
+    const data = await ghFetch(`/repos/${parsed.owner}/${parsed.repo}/pulls?state=open&per_page=20`, session.githubToken);
+    return data.map((pr: any) => pr.number);
+  } catch {
+    return [];
+  }
+}

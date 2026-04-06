@@ -10,7 +10,12 @@ import {
   WELLNESS_CHECK_INTERVAL_MS,
   DEPENDENCY_WATCH_INTERVAL_MS,
   AUTONOMOUS_STAGGER_MS,
+  PR_WATCH_INTERVAL_MS,
 } from './constants.ts';
+import { getLatestCommitSHA, getOpenPRNumbers, fetchCommitDiff, fetchPRFiles } from './github-service.ts';
+import { DATA_DIR } from './constants.ts';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { join } from 'path';
 
 const AUTONOMOUS_ENABLED = process.env.AUTONOMOUS_ENABLED !== 'false';
 
@@ -134,6 +139,100 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
         'Flagging dependency updates for your review — check for security implications.',
         'Hawk'
       );
+    },
+  },
+  {
+    agentName: 'Hawk',
+    taskName: 'pr-watch',
+    intervalMs: PR_WATCH_INTERVAL_MS,
+    handler: async () => {
+      const stateFile = join(DATA_DIR, '.buddies-hawk-state.json');
+
+      // Load last known state
+      let lastCommitSHA = '';
+      let lastPRNumbers: number[] = [];
+      try {
+        if (existsSync(stateFile)) {
+          const state = JSON.parse(readFileSync(stateFile, 'utf-8'));
+          lastCommitSHA = state.lastCommitSHA || '';
+          lastPRNumbers = state.lastPRNumbers || [];
+        }
+      } catch {}
+
+      // Check for new commits
+      const currentSHA = await getLatestCommitSHA();
+      if (currentSHA && currentSHA !== lastCommitSHA && lastCommitSHA !== '') {
+        logger.info(`[AUTONOMOUS] Hawk detected new commit: ${currentSHA}`);
+
+        const diff = await fetchCommitDiff(currentSHA);
+        if (diff) {
+          // Post to user
+          await postToUser(
+            'Hawk',
+            `New commit detected. Reviewing changes...\n\n\`\`\`diff\n${diff.slice(0, 1500)}\n\`\`\``
+          );
+
+          // Send diff to Hawk for deep analysis via session
+          const reviewResult = await sendAgentMessage(
+            'Chief',
+            `Hawk, review this new commit:\n\n\`\`\`diff\n${diff.slice(0, 3000)}\n\`\`\`\n\nCheck for security issues, code quality, and potential bugs. Rate findings by severity.`,
+            'Hawk'
+          );
+
+          if (reviewResult.sent && reviewResult.response) {
+            await postToUser('Hawk', reviewResult.response);
+            // Notify Chief about findings
+            await sendAgentMessage('Hawk', `Code review complete for latest commit. Here are my findings: ${reviewResult.response.slice(0, 500)}`, 'Chief');
+          }
+        }
+      }
+
+      // Check for new PRs
+      const currentPRs = await getOpenPRNumbers();
+      const newPRs = currentPRs.filter((pr) => !lastPRNumbers.includes(pr));
+
+      for (const prNumber of newPRs) {
+        logger.info(`[AUTONOMOUS] Hawk detected new PR #${prNumber}`);
+
+        const files = await fetchPRFiles(prNumber);
+        if (files.length > 0) {
+          const fileSummary = files.map((f) =>
+            `${f.status === 'added' ? '+' : f.status === 'removed' ? '-' : '~'} ${f.filename} (+${f.additions} -${f.deletions})`
+          ).join('\n');
+
+          const patches = files
+            .filter((f) => f.patch)
+            .slice(0, 5) // Top 5 files
+            .map((f) => `### ${f.filename}\n\`\`\`diff\n${f.patch}\n\`\`\``)
+            .join('\n\n');
+
+          await postToUser(
+            'Hawk',
+            `New PR #${prNumber} detected — ${files.length} files changed:\n${fileSummary}`
+          );
+
+          // Send to Hawk for review
+          const reviewResult = await sendAgentMessage(
+            'Chief',
+            `Hawk, review PR #${prNumber}. Changed files:\n${fileSummary}\n\nDiffs:\n${patches.slice(0, 3000)}\n\nCheck for security, quality, and bugs.`,
+            'Hawk'
+          );
+
+          if (reviewResult.sent && reviewResult.response) {
+            await postToUser('Hawk', `PR #${prNumber} review:\n\n${reviewResult.response}`);
+            await sendAgentMessage('Hawk', `PR #${prNumber} review complete: ${reviewResult.response.slice(0, 500)}`, 'Chief');
+          }
+        }
+      }
+
+      // Save state
+      try {
+        writeFileSync(stateFile, JSON.stringify({
+          lastCommitSHA: currentSHA || lastCommitSHA,
+          lastPRNumbers: currentPRs.length > 0 ? currentPRs : lastPRNumbers,
+          lastChecked: Date.now(),
+        }, null, 2));
+      } catch {}
     },
   },
 ];

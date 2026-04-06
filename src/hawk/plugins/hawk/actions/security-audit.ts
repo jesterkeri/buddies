@@ -1,6 +1,6 @@
 import type { Action } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../../shared/agent-state.ts';
-import { getRepoContext, fetchFile } from '../../../../shared/github-service.ts';
+import { getRepoContext, fetchFile, fetchCommits, fetchCommitDiff } from '../../../../shared/github-service.ts';
 
 /**
  * Hawk's OWASP-style security audit.
@@ -24,6 +24,17 @@ export const securityAudit: Action = {
     for (const path of filePaths.slice(0, 3)) {
       const content = await fetchFile(path);
       if (content) codeContext += `\n### ${path}\n\`\`\`\n${content.slice(0, 2000)}\n\`\`\`\n`;
+    }
+
+    // Also fetch recent commit diffs for change-based analysis
+    if (!codeContext) {
+      const commits = await fetchCommits(3);
+      for (const commit of commits) {
+        const diff = await fetchCommitDiff(commit.sha);
+        if (diff) {
+          codeContext += `\n### Commit: "${commit.message}" by ${commit.author}\n\`\`\`diff\n${diff.slice(0, 2000)}\n\`\`\`\n`;
+        }
+      }
     }
 
     if (!codeContext) {

@@ -21,6 +21,7 @@ export const OPPORTUNITY_SCAN_INTERVAL_MS = FAST ? 5 * 60 * 1000 : 4 * 60 * 60 *
 export const WELLNESS_CHECK_INTERVAL_MS = FAST ? 4 * 60 * 1000 : 90 * 60 * 1000; // 4min dev / 90min prod
 export const DEPENDENCY_WATCH_INTERVAL_MS = FAST ? 6 * 60 * 1000 : 6 * 60 * 60 * 1000; // 6min dev / 6hr prod
 export const AUTONOMOUS_STAGGER_MS = FAST ? 5_000 : 10_000; // 5s dev / 10s prod
+export const PR_WATCH_INTERVAL_MS = FAST ? 3 * 60 * 1000 : 30 * 60 * 1000; // 3min dev / 30min prod
 
 // Trigger delays
 export const TRIGGER_RESPONSE_DELAY_MS = 10_000; // 10s agent response simulation
