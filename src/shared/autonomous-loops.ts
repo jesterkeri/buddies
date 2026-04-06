@@ -99,10 +99,16 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
     taskName: 'wellness-check',
     intervalMs: WELLNESS_CHECK_INTERVAL_MS,
     handler: async () => {
-      // Buddy talks directly to the user — no routing through Chief
+      // Tell the user directly
       await postToUser(
         'Buddy',
         "Hey! 🌟 Quick wellness check — you've been working for a while. Time to stretch, grab water, or take a short walk. Your code will still be here when you get back! 💪"
+      );
+      // Tell Chief so he can find a stopping point
+      await sendAgentMessage(
+        'Buddy',
+        "The team has been going hard. Can we find a natural stopping point soon? Everyone needs a breather.",
+        'Chief'
       );
     },
   },

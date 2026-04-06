@@ -12,13 +12,15 @@ export const SERVER_URL = process.env.SERVER_URL || `http://localhost:${SERVER_P
 export const DEFAULT_MESSAGE_SERVER_ID = '00000000-0000-0000-0000-000000000000';
 
 // Autonomous loop intervals
-export const STANDUP_INTERVAL_MS = 8 * 60 * 60 * 1000; // 8 hours
-export const IDLE_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
-export const IDLE_THRESHOLD_MS = 25 * 60 * 1000; // 25 minutes
-export const OPPORTUNITY_SCAN_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
-export const WELLNESS_CHECK_INTERVAL_MS = 90 * 60 * 1000; // 90 minutes
-export const DEPENDENCY_WATCH_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
-export const AUTONOMOUS_STAGGER_MS = 10_000; // 10s between each agent's first message
+// In development, use shorter intervals for testing. Set FAST_LOOPS=true in .env
+const FAST = process.env.FAST_LOOPS === 'true';
+export const STANDUP_INTERVAL_MS = FAST ? 5 * 60 * 1000 : 8 * 60 * 60 * 1000; // 5min dev / 8hr prod
+export const IDLE_CHECK_INTERVAL_MS = FAST ? 3 * 60 * 1000 : 30 * 60 * 1000; // 3min dev / 30min prod
+export const IDLE_THRESHOLD_MS = FAST ? 2 * 60 * 1000 : 25 * 60 * 1000; // 2min dev / 25min prod
+export const OPPORTUNITY_SCAN_INTERVAL_MS = FAST ? 5 * 60 * 1000 : 4 * 60 * 60 * 1000; // 5min dev / 4hr prod
+export const WELLNESS_CHECK_INTERVAL_MS = FAST ? 4 * 60 * 1000 : 90 * 60 * 1000; // 4min dev / 90min prod
+export const DEPENDENCY_WATCH_INTERVAL_MS = FAST ? 6 * 60 * 1000 : 6 * 60 * 60 * 1000; // 6min dev / 6hr prod
+export const AUTONOMOUS_STAGGER_MS = FAST ? 5_000 : 10_000; // 5s dev / 10s prod
 
 // Trigger delays
 export const TRIGGER_RESPONSE_DELAY_MS = 10_000; // 10s agent response simulation
