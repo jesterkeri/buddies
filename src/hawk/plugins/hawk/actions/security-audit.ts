@@ -48,7 +48,7 @@ export const securityAudit: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Run a security audit on our code' } },
-      { name: 'Hawk', content: { text: 'OWASP Top 10 Audit Results:\n\nCRITICAL: A03 — SQL injection in user query handler (line 45). Use parameterized queries.\nHIGH: A01 — No auth middleware on /admin routes.\nMEDIUM: A05 — Verbose error messages expose stack traces in production.\nLOW: A09 — No request logging on sensitive endpoints.', actions: ['SECURITY_AUDIT'] } },
+      { name: 'Hawk', content: { text: 'Running OWASP Top 10 audit on the connected codebase. I will report real findings with severity ratings.', actions: ['SECURITY_AUDIT'] } },
     ],
   ],
 };

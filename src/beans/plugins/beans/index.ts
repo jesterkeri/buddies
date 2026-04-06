@@ -32,7 +32,7 @@ const checkWellness: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'I have been coding for hours' } },
-      { name: 'Buddy', content: { text: "Hey, you've been at it for 4 hours straight 😅 There's a solid ramen spot 5 minutes from you — 4.7 stars, open till 10pm. Go eat! 🍜", actions: ['CHECK_WELLNESS'] } },
+      { name: 'Buddy', content: { text: "Time for a break! Tell me your location and I'll find real places nearby for food or coffee 😊", actions: ['CHECK_WELLNESS'] } },
     ],
   ],
 };
@@ -61,7 +61,7 @@ const celebrate: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Just shipped the staking contract!' } },
-      { name: 'Buddy', content: { text: "LET'S GOOO 🎉🚀 That's a big one! You've been grinding on this all week and it's finally live. Take a victory lap! 🏆", actions: ['CELEBRATE'] } },
+      { name: 'Buddy', content: { text: "LET'S GOOO 🎉🚀 That deserves a celebration! You've been putting in the work! 🏆", actions: ['CELEBRATE'] } },
     ],
   ],
 };
@@ -128,7 +128,7 @@ const recommendFood: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'I am hungry' } },
-      { name: 'Buddy', content: { text: "Ooh, food time! 🍜 There's a great Thai place 3 minutes away — 4.8 stars, affordable, and they do quick takeout. Or if you want to sit down, the cafe on the corner has solid sandwiches and wifi. Go eat!", actions: ['RECOMMEND_FOOD'] } },
+      { name: 'Buddy', content: { text: "Tell me where you are and I'll search for real restaurants, cafes, or hotels nearby using OpenStreetMap! 🍕", actions: ['RECOMMEND_FOOD'] } },
     ],
   ],
 };

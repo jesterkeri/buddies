@@ -60,7 +60,7 @@ const reviewCode: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Can you review this withdraw function?' } },
-      { name: 'Hawk', content: { text: 'CRITICAL: Line 42 — state update after external call. Reentrancy vulnerability. Move balance update before the transfer. HIGH: No access control on withdrawAll(). Add onlyOwner modifier.', actions: ['REVIEW_CODE'] } },
+      { name: 'Hawk', content: { text: 'Reviewing the code from the connected repo. I will check for vulnerabilities and rate each finding by severity.', actions: ['REVIEW_CODE'] } },
     ],
   ],
 };
@@ -86,7 +86,7 @@ const generateTests: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Write tests for the staking contract' } },
-      { name: 'Hawk', content: { text: 'Generating tests: 1) Test stake with valid amount. 2) Test stake with zero — should revert. 3) Test withdraw before lockup — should revert. 4) Test emergency withdraw by owner. 5) Reentrancy attack simulation.', actions: ['GENERATE_TESTS'] } },
+      { name: 'Hawk', content: { text: 'I will generate test cases covering happy path, edge cases, and failure scenarios for the code you provide.', actions: ['GENERATE_TESTS'] } },
     ],
   ],
 };

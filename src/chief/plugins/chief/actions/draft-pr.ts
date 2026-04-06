@@ -26,7 +26,7 @@ export const draftPR: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Write a PR description for the auth changes' } },
-      { name: 'Chief', content: { text: '## Summary\nRefactored authentication middleware to use JWT tokens instead of session cookies.\n\n## Changes\n- Replaced express-session with jsonwebtoken\n- Added refresh token rotation\n- Updated all protected routes\n\n## Testing\n- All existing auth tests pass\n- Added 12 new tests for token refresh flow\n\n## Breaking Changes\n- Cookie-based sessions no longer supported\n- Clients must send Bearer token in Authorization header', actions: ['DRAFT_PR'] } },
+      { name: 'Chief', content: { text: 'I will draft a PR description based on the changes you describe. Share the diff or describe what changed.', actions: ['DRAFT_PR'] } },
     ],
   ],
 };

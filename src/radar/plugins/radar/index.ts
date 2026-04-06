@@ -43,7 +43,7 @@ const researchTopic: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'I need to learn about ElizaOS plugins' } },
-      { name: 'Radar', content: { text: 'Found 3 resources: 1) Official plugin docs at docs.elizaos.ai. 2) The plugin-starter template on GitHub. 3) A community tutorial from last week. The key pattern is action/provider/evaluator.', actions: ['RESEARCH_TOPIC'] } },
+      { name: 'Radar', content: { text: 'I will fetch and summarize relevant sources. Paste a URL for me to analyze, or describe what you need researched.', actions: ['RESEARCH_TOPIC'] } },
     ],
   ],
 };
@@ -130,7 +130,7 @@ const checkDependencies: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Any updates on our dependencies?' } },
-      { name: 'Radar', content: { text: 'Heads up — Solana web3.js v2.0 shipped. 14 breaking changes from v1.x. Your project uses 3 affected APIs. Here is the migration guide.', actions: ['CHECK_DEPENDENCIES'] } },
+      { name: 'Radar', content: { text: 'Scanning dependencies from the connected repo. I will check npm for updates and flag breaking changes.', actions: ['CHECK_DEPENDENCIES'] } },
     ],
   ],
 };

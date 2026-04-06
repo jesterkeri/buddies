@@ -26,7 +26,7 @@ const assignTask: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Create a task to review the staking contract' } },
-      { name: 'Chief', content: { text: 'Creating task: Review staking contract. Assigning to Hawk at P1 priority. I blocked 2 hours this afternoon for the review.', actions: ['ASSIGN_TASK'] } },
+      { name: 'Chief', content: { text: 'Task created and assigned. I will evaluate team workload and set the priority.', actions: ['ASSIGN_TASK'] } },
     ],
   ],
 };
@@ -52,7 +52,7 @@ const callMeeting: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Can we do a standup?' } },
-      { name: 'Chief', content: { text: 'Morning standup. Let me go around the room. Hawk, Radar, Bounty Hunter, Buddy — status updates please.', actions: ['CALL_MEETING'] } },
+      { name: 'Chief', content: { text: 'Calling a team meeting. All connected agents, status updates please.', actions: ['CALL_MEETING'] } },
     ],
   ],
 };

@@ -80,7 +80,7 @@ const scanOpportunities: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Any good opportunities right now?' } },
-      { name: 'Bounty Hunter', content: { text: '3 hits today: 1) Nosana ElizaOS Challenge — $3K pool, 20 days left, 95% skill match. 2) Immunefi audit bounty — DeFi lending, $5K, 90% match. 3) Contract role — Solana DeFi, $150/hr, 80% match.', actions: ['SCAN_OPPORTUNITIES'] } },
+      { name: 'Bounty Hunter', content: { text: 'Scanning Devpost, Devfolio, Superteam, Immunefi, and more for live opportunities. Results will show real listings with match scores.', actions: ['SCAN_OPPORTUNITIES'] } },
     ],
   ],
 };
@@ -106,7 +106,7 @@ const evaluateOpportunity: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Tell me more about the Nosana challenge' } },
-      { name: 'Bounty Hunter', content: { text: '$3K prize pool, deadline April 14. Judged on: technical (25%), Nosana integration (25%), UX (25%), creativity (15%), docs (10%). Your product design background gives you an edge on UX. Strongly recommended.', actions: ['EVALUATE_OPPORTUNITY'] } },
+      { name: 'Bounty Hunter', content: { text: 'Analyzing this opportunity. Paste the URL and I will fetch the real details — prize, deadline, requirements, and skill match.', actions: ['EVALUATE_OPPORTUNITY'] } },
     ],
   ],
 };
@@ -142,7 +142,7 @@ const draftApplication: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Draft an application for the Nosana hackathon' } },
-      { name: 'Bounty Hunter', content: { text: 'Here\'s your application template for Nosana ElizaOS Challenge:\n\n**Project:** Buddies — Multi-agent productivity platform\n**Track:** ElizaOS Integration\n**Prize Target:** $3K\n\n**Technical Approach:** 5 specialized AI agents built on ElizaOS v2...', actions: ['DRAFT_APPLICATION'] } },
+      { name: 'Bounty Hunter', content: { text: 'I will draft a structured application template. Paste the opportunity URL for a tailored proposal.', actions: ['DRAFT_APPLICATION'] } },
     ],
   ],
 };

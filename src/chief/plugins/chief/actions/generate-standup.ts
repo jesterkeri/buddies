@@ -31,7 +31,7 @@ export const generateStandup: Action = {
   examples: [
     [
       { name: '{{user1}}', content: { text: 'Give me a standup update' } },
-      { name: 'Chief', content: { text: 'Daily standup:\n1. Hawk completed security review of auth module — no critical issues.\n2. Radar found 2 dependency updates worth tracking.\n3. Bounty Hunter matched 3 hackathons — 85%+ skill overlap.\n4. Buddy reports team morale is high.\n\nPriorities today: Ship the auth fix, review dependency updates, submit hackathon application.', actions: ['GENERATE_STANDUP'] } },
+      { name: 'Chief', content: { text: 'Generating standup from current agent states and recent activity.', actions: ['GENERATE_STANDUP'] } },
     ],
   ],
 };
