@@ -4,7 +4,7 @@
 // shouldRespond for all other agents — enabling real agent-to-agent conversation chains.
 
 import { agentStateManager, AgentStatus } from './agent-state.ts';
-import { sendAgentMessage } from './agent-messenger.ts';
+import { sendAgentMessage, postToUser } from './agent-messenger.ts';
 import { logger } from '@elizaos/core';
 import { TRIGGER_RESPONSE_DELAY_MS, MEETING_DURATION_MS } from './constants.ts';
 
@@ -107,6 +107,9 @@ export async function fireTrigger(sourceAgent: string, sourceAction: string): Pr
     const messageKey = `${sourceAgent}:${sourceAction}`;
     const messageText = TRIGGER_MESSAGES[messageKey];
     if (messageText) {
+      // Notify the user about the trigger
+      await postToUser(sourceAgent, messageText);
+      // Send to each target agent for their response
       for (const target of trigger.targetAgents) {
         await sendAgentMessage(sourceAgent, messageText, target);
       }

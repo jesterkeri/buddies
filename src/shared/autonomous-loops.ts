@@ -47,7 +47,12 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
         }
       }
 
+      // Share standup summary directly with user
       if (responses.length > 0) {
+        await postToUser(
+          'Chief',
+          `Daily standup complete. ${responses.length} agent(s) reported:\n\n${responses.join('\n\n')}`
+        );
         logger.info(`[AUTONOMOUS] Standup complete. ${responses.length} agents responded.`);
       }
     },
@@ -76,10 +81,15 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
     taskName: 'opportunity-scan',
     intervalMs: OPPORTUNITY_SCAN_INTERVAL_MS,
     handler: async () => {
-      // Report findings to Chief for evaluation
+      // Tell the user directly about new opportunities
+      await postToUser(
+        'Bounty Hunter',
+        'Just finished scanning Devpost, Devfolio, Superteam, Immunefi, and more for new opportunities. Ask me to break down the top matches!'
+      );
+      // Also brief Chief so he can prioritize
       await sendAgentMessage(
         'Bounty Hunter',
-        'Just finished scanning for new opportunities across Devpost, Devfolio, Superteam, and more. Chief, I have matches worth reviewing — should I break down the top prospects?',
+        'Found new opportunities from my latest scan. Should I share the top matches with the team?',
         'Chief'
       );
     },
@@ -101,21 +111,23 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
     taskName: 'dependency-watch',
     intervalMs: DEPENDENCY_WATCH_INTERVAL_MS,
     handler: async () => {
-      // Alert Chief and Hawk about dependency status
-      const chiefResult = await sendAgentMessage(
+      // Tell the user directly
+      await postToUser(
         'Radar',
-        'Dependency monitoring update. Running a check on project dependencies for breaking changes or security advisories. Chief, adding any findings to the board.',
+        'Running a dependency check on the project. I will flag any breaking changes or security advisories.'
+      );
+      // Alert Chief for prioritization
+      await sendAgentMessage(
+        'Radar',
+        'Dependency monitoring update. Flagging any findings for the board.',
         'Chief'
       );
-
-      // If Chief acknowledges, also notify Hawk
-      if (chiefResult.sent) {
-        await sendAgentMessage(
-          'Radar',
-          'Hawk, flagging dependency updates for your review — check for any security implications in the affected files.',
-          'Hawk'
-        );
-      }
+      // Alert Hawk for security review
+      await sendAgentMessage(
+        'Radar',
+        'Flagging dependency updates for your review — check for security implications.',
+        'Hawk'
+      );
     },
   },
 ];
