@@ -13,9 +13,16 @@ const assignTask: Action = {
   handler: async (runtime, message, state, options, callback) => {
     agentStateManager.setState('Chief', AgentStatus.WORKING, 'Assigning task');
 
+    const text = (message.content?.text as string) || '';
+
+    // Get current team status for context
+    const allStates = agentStateManager.getAllStates();
+    const idleAgents = allStates.filter((s) => s.status === 'IDLE').map((s) => s.agentName);
+    const busyAgents = allStates.filter((s) => s.status !== 'IDLE').map((s) => `${s.agentName} (${s.status})`);
+
     if (callback) {
       await callback({
-        text: `Task noted. I'll add it to the mission board and assign the right agent. Let me evaluate the team's current workload and priorities.`,
+        text: `Task received: "${text}"\n\nTeam availability:\n- Idle: ${idleAgents.join(', ') || 'none'}\n- Busy: ${busyAgents.join(', ') || 'none'}\n\nI'll assign this based on who's available and whose domain matches best.`,
         actions: ['ASSIGN_TASK'],
       });
     }
@@ -39,9 +46,14 @@ const callMeeting: Action = {
   handler: async (runtime, message, state, options, callback) => {
     agentStateManager.setState('Chief', AgentStatus.MEETING, 'Team meeting');
 
+    const allStates = agentStateManager.getAllStates();
+    const statusList = allStates.map((s) =>
+      `- ${s.agentName}: ${s.status}${s.currentTask ? ` — ${s.currentTask}` : ''}`
+    ).join('\n');
+
     if (callback) {
       await callback({
-        text: `Calling a team meeting. All agents, let's sync up. I'll go around the room — each of you give a quick status update.`,
+        text: `Team meeting called.\n\nCurrent agent status:\n${statusList}\n\nAll agents, report your progress and blockers.`,
         actions: ['CALL_MEETING'],
       });
     }

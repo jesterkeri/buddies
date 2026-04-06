@@ -93,9 +93,28 @@ const evaluateOpportunity: Action = {
   handler: async (runtime, message, state, options, callback) => {
     agentStateManager.setState('Bounty Hunter', AgentStatus.WORKING, 'Evaluating opportunity');
 
+    const text = (message.content?.text as string) || '';
+
+    // Extract URL from message
+    const urls = text.match(/https?:\/\/[^\s]+/g);
+    let opportunityDetails = '';
+
+    if (urls && urls.length > 0) {
+      const content = await fetchCustomSource(urls[0]);
+      if (content) {
+        opportunityDetails = `\n\nOpportunity details from ${urls[0]}:\n${content}`;
+      } else {
+        opportunityDetails = `\n\nFailed to fetch ${urls[0]} — the site may be blocking automated access.`;
+      }
+    }
+
+    const response = opportunityDetails
+      ? `Evaluating this opportunity:${opportunityDetails}\n\nI'll analyze the requirements, prize structure, and how it matches your skills.`
+      : `Paste the opportunity URL and I'll fetch the real details — prize, deadline, requirements, and how it matches your skills. Without a URL, I can only work with what you describe.`;
+
     if (callback) {
       await callback({
-        text: `Analyzing this opportunity in detail. I'll break down the skill match, time commitment, competition level, and give my recommendation.`,
+        text: response,
         actions: ['EVALUATE_OPPORTUNITY'],
       });
     }

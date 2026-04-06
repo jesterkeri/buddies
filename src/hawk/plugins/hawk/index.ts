@@ -73,9 +73,30 @@ const generateTests: Action = {
   handler: async (runtime, message, state, options, callback) => {
     agentStateManager.setState('Hawk', AgentStatus.WORKING, 'Generating tests');
 
+    const text = (message.content?.text as string) || '';
+
+    // Try to fetch the file to generate tests for
+    const filePatterns = text.match(/[`"']([^`"']+\.[a-z]{1,4})[`"']/gi) || [];
+    const filePaths = filePatterns.map((f) => f.replace(/[`"']/g, ''));
+
+    let codeContext = '';
+    for (const path of filePaths.slice(0, 2)) {
+      const content = await fetchFile(path);
+      if (content) codeContext += `\n### ${path}\n\`\`\`\n${content.slice(0, 2000)}\n\`\`\`\n`;
+    }
+
+    if (!codeContext) {
+      const repo = await getRepoContext();
+      if (repo) codeContext = repo;
+    }
+
+    const response = codeContext
+      ? `Generating tests for:\n${codeContext}\n\nI'll create test cases covering happy path, edge cases, and failure scenarios based on this actual code.`
+      : `I need code to generate tests for. Either:\n1. Connect a GitHub repo in the Session tab\n2. Paste the code directly\n3. Mention the file path like \`src/auth.ts\``;
+
     if (callback) {
       await callback({
-        text: `Generating test cases. I'll cover the happy path, edge cases, and failure scenarios.`,
+        text: response,
         actions: ['GENERATE_TESTS'],
       });
     }
