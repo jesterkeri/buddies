@@ -16,23 +16,16 @@ const scanOpportunities: Action = {
     // Fetch real bounty data from all sources
     const listings = await fetchAllBounties();
 
-    // Read user skills from config for match scoring
-    const { getSessionConfig } = await import('../../../shared/config-server.ts');
+    // Read user skills from onboarding profile for match scoring
+    const { getUserProfile } = await import('../../../shared/config-server.ts');
     let userSkills: string[] = [];
     try {
-      const session = getSessionConfig();
-      // Try to read onboarding profile from config
-      const fs = await import('fs');
-      const path = await import('path');
-      const onboardingPath = path.join(process.cwd(), '.buddies-onboarding.json');
-      if (fs.existsSync(onboardingPath)) {
-        const profile = JSON.parse(fs.readFileSync(onboardingPath, 'utf-8'));
-        userSkills = [
-          ...(profile.languages || []),
-          ...(profile.frameworks || []),
-          ...(profile.chains || []),
-        ].map((s: string) => s.toLowerCase());
-      }
+      const profile = getUserProfile();
+      userSkills = [
+        ...profile.languages,
+        ...profile.frameworks,
+        ...profile.chains,
+      ].map((s) => s.toLowerCase());
     } catch {}
 
     // Score listings by skill match

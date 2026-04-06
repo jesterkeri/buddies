@@ -71,9 +71,26 @@ export function useTeamSession() {
 
 // ── All messages (unified across sessions) ──
 
-// Store all chat messages in a single local array
-let allMessages: ChatMessage[] = [];
-const seenMessageIds = new Set<string>();
+// Persist messages to localStorage so they survive page refresh
+const MESSAGES_KEY = 'buddies-chat-messages';
+
+function loadMessages(): ChatMessage[] {
+  try {
+    const raw = localStorage.getItem(MESSAGES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMessages(msgs: ChatMessage[]): void {
+  // Keep last 200 messages to avoid localStorage bloat
+  const trimmed = msgs.slice(-200);
+  localStorage.setItem(MESSAGES_KEY, JSON.stringify(trimmed));
+}
+
+let allMessages: ChatMessage[] = loadMessages();
+const seenMessageIds = new Set<string>(allMessages.map((m) => m.id));
 
 function toEpoch(v: any): number {
   if (!v) return Date.now();
@@ -125,8 +142,9 @@ export function useMessages() {
         }
       } catch {}
 
-      // Sort by timestamp and deduplicate
+      // Sort by timestamp, deduplicate, and persist
       allMessages.sort((a, b) => a.timestamp - b.timestamp);
+      saveMessages(allMessages);
       return allMessages;
     },
     staleTime: 3_000,
@@ -156,6 +174,7 @@ export function useSendMessage() {
       };
       seenMessageIds.add(userMsg.id);
       allMessages = [...allMessages, userMsg];
+      saveMessages(allMessages);
       queryClient.setQueryData<ChatMessage[]>(['allMessages'], allMessages);
 
       // Find which agent to talk to
@@ -204,6 +223,7 @@ export function useSendMessage() {
         };
         seenMessageIds.add(responseMsg.id);
         allMessages = [...allMessages, responseMsg];
+        saveMessages(allMessages);
         queryClient.setQueryData<ChatMessage[]>(['allMessages'], allMessages);
 
         // Log to Intel feed

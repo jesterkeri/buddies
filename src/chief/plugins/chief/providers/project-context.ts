@@ -1,4 +1,5 @@
 import type { Provider, IAgentRuntime, Memory, State } from '@elizaos/core';
+import { getUserProfile } from '../../../../shared/config-server.ts';
 
 /**
  * Chief-specific project context provider.
@@ -43,6 +44,15 @@ export const projectContextProvider: Provider = {
           .map((m) => `- ${m.content.text}`)
           .join('\n');
         if (recent) sections.push(`## Recent Conversation\n${recent}`);
+      }
+    } catch {}
+
+    // User profile
+    try {
+      const profile = getUserProfile();
+      if (profile.name) {
+        const skills = [...profile.languages, ...profile.frameworks, ...profile.chains].filter(Boolean);
+        sections.push(`## User Profile\n- Name: ${profile.name}\n- Experience: ${profile.experience}\n- Skills: ${skills.join(', ') || 'not specified'}`);
       }
     } catch {}
 

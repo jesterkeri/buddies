@@ -7,6 +7,7 @@ import { loadAiConfig, saveAiConfig, invalidateAiConfigCache } from './ai-config
 const CONFIG_PORT = 3001;
 const SESSION_PATH = join(process.cwd(), '.buddies-session-config.json');
 const TASKS_PATH = join(process.cwd(), '.buddies-tasks.json');
+const ONBOARDING_PATH = join(process.cwd(), '.buddies-onboarding.json');
 let started = false;
 
 function loadSession(): any {
@@ -18,6 +19,23 @@ function loadSession(): any {
 
 function saveSession(data: any): void {
   writeFileSync(SESSION_PATH, JSON.stringify(data, null, 2));
+}
+
+// Expose user profile for agents to read (skills, preferences)
+export function getUserProfile(): { name: string; languages: string[]; frameworks: string[]; chains: string[]; experience: string } {
+  try {
+    if (existsSync(ONBOARDING_PATH)) {
+      const d = JSON.parse(readFileSync(ONBOARDING_PATH, 'utf-8'));
+      return {
+        name: d.name || '',
+        languages: d.languages || [],
+        frameworks: d.frameworks || [],
+        chains: d.chains || [],
+        experience: d.experience || '',
+      };
+    }
+  } catch {}
+  return { name: '', languages: [], frameworks: [], chains: [], experience: '' };
 }
 
 // Expose for other modules to read GitHub config
@@ -95,6 +113,41 @@ export function startConfigServer(): void {
           res.writeHead(200);
           res.end(JSON.stringify({ success: true, message: 'Session config saved.' }));
           logger.info('[BUDDIES] Session config saved (repo: ' + (data.repoFullName || 'none') + ')');
+        } catch {
+          res.writeHead(400);
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+
+    // ── Onboarding (user profile/skills) ──
+    if (req.method === 'GET' && req.url === '/onboarding') {
+      try {
+        if (existsSync(ONBOARDING_PATH)) {
+          res.writeHead(200);
+          res.end(readFileSync(ONBOARDING_PATH, 'utf-8'));
+        } else {
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, data: {} }));
+        }
+      } catch {
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: {} }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/onboarding') {
+      let body = '';
+      req.on('data', (chunk) => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          writeFileSync(ONBOARDING_PATH, JSON.stringify(data, null, 2));
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true }));
+          logger.info(`[BUDDIES] Onboarding profile saved for: ${data.name || 'unknown'}`);
         } catch {
           res.writeHead(400);
           res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));

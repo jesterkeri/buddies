@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { CONFIG_SERVER } from '../../api/config';
 
 export interface UserProfile {
   name: string;
@@ -125,6 +126,25 @@ export function updatePreferences(prefs: Partial<Preferences>): void {
 export function completeOnboarding(): void {
   state = { ...state, completed: true };
   notify();
+  // Sync profile to backend so agents can read user skills
+  syncProfileToBackend();
+}
+
+function syncProfileToBackend(): void {
+  const profile = {
+    name: state.profile.name,
+    languages: state.profile.languages,
+    frameworks: state.profile.frameworks,
+    chains: state.profile.chains,
+    experience: state.profile.experience,
+    teamNames: state.teamNames,
+    preferences: state.preferences,
+  };
+  fetch(`${CONFIG_SERVER}/onboarding`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(profile),
+  }).catch(() => {});
 }
 
 export function resetOnboarding(): void {
