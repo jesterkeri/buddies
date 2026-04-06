@@ -1,4 +1,11 @@
+import { join } from 'path';
+
 // Shared constants for all backend modules
+
+// Data directory — persists across container restarts via Docker volume
+export const DATA_DIR = process.env.NODE_ENV === 'production'
+  ? join(process.cwd(), 'data')
+  : process.cwd();
 
 export const SERVER_PORT = process.env.SERVER_PORT || '3000';
 export const SERVER_URL = process.env.SERVER_URL || `http://localhost:${SERVER_PORT}`;

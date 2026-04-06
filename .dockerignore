@@ -8,3 +8,4 @@ dist
 data
 *.md
 !README.md
+.buddies-*.json

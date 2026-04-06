@@ -4,10 +4,12 @@ import { join } from 'path';
 import { logger } from '@elizaos/core';
 import { loadAiConfig, saveAiConfig, invalidateAiConfigCache } from './ai-config.ts';
 
+import { DATA_DIR } from './constants.ts';
+
 const CONFIG_PORT = 3001;
-const SESSION_PATH = join(process.cwd(), '.buddies-session-config.json');
-const TASKS_PATH = join(process.cwd(), '.buddies-tasks.json');
-const ONBOARDING_PATH = join(process.cwd(), '.buddies-onboarding.json');
+const SESSION_PATH = join(DATA_DIR, '.buddies-session-config.json');
+const TASKS_PATH = join(DATA_DIR, '.buddies-tasks.json');
+const ONBOARDING_PATH = join(DATA_DIR, '.buddies-onboarding.json');
 let started = false;
 
 function loadSession(): any {

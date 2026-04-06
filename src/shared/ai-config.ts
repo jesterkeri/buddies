@@ -1,8 +1,9 @@
 import { logger } from '@elizaos/core';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { DATA_DIR } from './constants.ts';
 
-const CONFIG_PATH = join(process.cwd(), '.buddies-ai-config.json');
+const CONFIG_PATH = join(DATA_DIR, '.buddies-ai-config.json');
 
 export interface AgentAiConfig {
   provider: string;

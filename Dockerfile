@@ -16,7 +16,7 @@ RUN npm install -g bun
 RUN bun install -g @elizaos/cli
 ENV PATH="/root/.bun/bin:${PATH}"
 
-COPY package.json bun.lockb* ./
+COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile || bun install
 
 COPY . .
