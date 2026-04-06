@@ -2,9 +2,17 @@ import { logger } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from './agent-state.ts';
 import { sendAgentMessage } from './agent-messenger.ts';
 import { getTeamChannelId } from './team-channel.ts';
+import {
+  STANDUP_INTERVAL_MS,
+  IDLE_CHECK_INTERVAL_MS,
+  IDLE_THRESHOLD_MS,
+  OPPORTUNITY_SCAN_INTERVAL_MS,
+  WELLNESS_CHECK_INTERVAL_MS,
+  DEPENDENCY_WATCH_INTERVAL_MS,
+  AUTONOMOUS_STAGGER_MS,
+} from './constants.ts';
 
-const AUTONOMOUS_ENABLED = process.env.AUTONOMOUS_ENABLED !== 'false'; // on by default
-const STAGGER_MS = 10_000; // 10s between each agent's first message
+const AUTONOMOUS_ENABLED = process.env.AUTONOMOUS_ENABLED !== 'false';
 
 interface AutonomousTask {
   agentName: string;
@@ -17,7 +25,7 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
   {
     agentName: 'Chief',
     taskName: 'standup',
-    intervalMs: 8 * 60 * 60 * 1000, // 8 hours
+    intervalMs: STANDUP_INTERVAL_MS,
     handler: async () => {
       await sendAgentMessage(
         'Chief',
@@ -28,14 +36,14 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
   {
     agentName: 'Chief',
     taskName: 'idle-check',
-    intervalMs: 30 * 60 * 1000, // 30 minutes
+    intervalMs: IDLE_CHECK_INTERVAL_MS,
     handler: async () => {
       const states = agentStateManager.getAllStates();
       const idleAgents = states.filter(
         (s) =>
           s.status === AgentStatus.IDLE &&
           s.agentName !== 'Chief' &&
-          Date.now() - s.lastUpdated > 25 * 60 * 1000 // idle for 25+ min
+          Date.now() - s.lastUpdated > IDLE_THRESHOLD_MS
       );
 
       if (idleAgents.length > 0) {
@@ -50,7 +58,7 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
   {
     agentName: 'Bounty Hunter',
     taskName: 'opportunity-scan',
-    intervalMs: 4 * 60 * 60 * 1000, // 4 hours
+    intervalMs: OPPORTUNITY_SCAN_INTERVAL_MS,
     handler: async () => {
       await sendAgentMessage(
         'Bounty Hunter',
@@ -61,7 +69,7 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
   {
     agentName: 'Buddy',
     taskName: 'wellness-check',
-    intervalMs: 90 * 60 * 1000, // 90 minutes
+    intervalMs: WELLNESS_CHECK_INTERVAL_MS,
     handler: async () => {
       await sendAgentMessage(
         'Buddy',
@@ -72,7 +80,7 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
   {
     agentName: 'Radar',
     taskName: 'dependency-watch',
-    intervalMs: 6 * 60 * 60 * 1000, // 6 hours
+    intervalMs: DEPENDENCY_WATCH_INTERVAL_MS,
     handler: async () => {
       await sendAgentMessage(
         'Radar',
@@ -130,7 +138,7 @@ export function startAutonomousLoops(): void {
       }, task.intervalMs);
 
       activeTimers.set(`${key}:interval`, interval);
-    }, STAGGER_MS * index);
+    }, AUTONOMOUS_STAGGER_MS * index);
 
     activeTimers.set(`${key}:init`, initTimer);
   });

@@ -1,28 +1,13 @@
 import { logger } from '@elizaos/core';
 import { getTeamChannelId } from './team-channel.ts';
-
-const SERVER_PORT = process.env.SERVER_PORT || '3000';
-const SERVER_URL = process.env.SERVER_URL || `http://localhost:${SERVER_PORT}`;
+import { apiCall } from './http.ts';
+import { DEFAULT_MESSAGE_SERVER_ID, AGENT_COOLDOWN_MS } from './constants.ts';
 
 // Cache agent name → ID mappings
 const agentIdCache = new Map<string, string>();
-let messageServerId: string | null = null;
 
 // Per-agent cooldown tracking (prevent message flooding)
 const lastMessageTime = new Map<string, number>();
-const COOLDOWN_MS = 60_000; // 60 seconds between autonomous messages per agent
-
-async function apiCall(path: string, options?: RequestInit): Promise<any> {
-  const res = await fetch(`${SERVER_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`API ${path} failed (${res.status}): ${text}`);
-  }
-  return res.json();
-}
 
 async function getAgentId(agentName: string): Promise<string | null> {
   const cached = agentIdCache.get(agentName);
@@ -49,18 +34,6 @@ async function getAgentId(agentName: string): Promise<string | null> {
   }
 }
 
-async function getMessageServerId(): Promise<string | null> {
-  if (messageServerId) return messageServerId;
-
-  try {
-    const res = await apiCall('/api/messaging/message-servers/current');
-    messageServerId = res?.data?.id || res?.id || res?.messageServerId || null;
-    return messageServerId;
-  } catch (err) {
-    logger.error(`[BUDDIES] Failed to get message server ID: ${err}`);
-    return null;
-  }
-}
 
 /**
  * Send a message to the team channel as a specific agent.
@@ -77,7 +50,7 @@ export async function sendAgentMessage(agentName: string, text: string): Promise
   // Guard: per-agent cooldown
   const lastTime = lastMessageTime.get(agentName) || 0;
   const now = Date.now();
-  if (now - lastTime < COOLDOWN_MS) {
+  if (now - lastTime < AGENT_COOLDOWN_MS) {
     logger.info(`[BUDDIES] Skipping autonomous message from ${agentName} — cooldown active`);
     return false;
   }
@@ -89,12 +62,7 @@ export async function sendAgentMessage(agentName: string, text: string): Promise
     return false;
   }
 
-  // Get message server ID
-  const serverId = await getMessageServerId();
-  if (!serverId) {
-    logger.warn(`[BUDDIES] Cannot send message — message server ID not found`);
-    return false;
-  }
+  const serverId = DEFAULT_MESSAGE_SERVER_ID;
 
   try {
     await apiCall(`/api/messaging/channels/${channelId}/messages`, {

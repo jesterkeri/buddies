@@ -6,6 +6,7 @@
 import { agentStateManager, AgentStatus } from './agent-state.ts';
 import { sendAgentMessage } from './agent-messenger.ts';
 import { logger } from '@elizaos/core';
+import { TRIGGER_RESPONSE_DELAY_MS, MEETING_DURATION_MS } from './constants.ts';
 
 export interface Trigger {
   sourceAgent: string;
@@ -77,13 +78,12 @@ export async function fireTrigger(sourceAgent: string, sourceAction: string): Pr
       if (!currentState || currentState.status === AgentStatus.IDLE) {
         agentStateManager.setState(target, AgentStatus.WORKING, `Responding to ${sourceAgent}`);
 
-        // Reset to idle after a delay (simulates processing time)
         setTimeout(() => {
           const state = agentStateManager.getState(target);
           if (state?.currentTask === `Responding to ${sourceAgent}`) {
             agentStateManager.setState(target, AgentStatus.IDLE);
           }
-        }, 10_000);
+        }, TRIGGER_RESPONSE_DELAY_MS);
       }
     }
 
@@ -94,14 +94,13 @@ export async function fireTrigger(sourceAgent: string, sourceAction: string): Pr
         agentStateManager.setState(target, AgentStatus.MEETING, 'In meeting');
       }
 
-      // End meeting after 30 seconds
       setTimeout(() => {
         agentStateManager.setState(sourceAgent, AgentStatus.IDLE);
         for (const target of trigger.targetAgents) {
           agentStateManager.setState(target, AgentStatus.IDLE);
         }
         logger.info('[BUDDIES] Meeting ended');
-      }, 30_000);
+      }, MEETING_DURATION_MS);
     }
 
     // Send a message from the source agent to the team channel

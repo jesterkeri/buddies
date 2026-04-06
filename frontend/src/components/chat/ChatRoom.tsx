@@ -6,8 +6,8 @@ import MessageInput from './MessageInput';
 
 export default function ChatRoom() {
   const { data: session, isLoading: sessionLoading } = useTeamSession();
-  const { data: messages, isLoading: messagesLoading } = useMessages(session?.channelId);
-  const sendMessage = useSendMessage(session?.channelId);
+  const { data: messages, isLoading: messagesLoading } = useMessages();
+  const sendMessage = useSendMessage();
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
 
   if (sessionLoading) {

@@ -6,7 +6,6 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useMemo } from 'react';
 import { pushEvent } from '../components/activity/activityStore';
 import {
   listAgents,
@@ -75,7 +74,7 @@ export function useTeamSession() {
 // Store all chat messages in a single local array
 let allMessages: ChatMessage[] = [];
 
-export function useMessages(_channelId: string | null | undefined) {
+export function useMessages() {
   return useQuery<ChatMessage[]>({
     queryKey: ['allMessages'],
     queryFn: () => allMessages,
@@ -86,7 +85,7 @@ export function useMessages(_channelId: string | null | undefined) {
 
 // ── Send message ──
 
-export function useSendMessage(_channelId: string | null | undefined) {
+export function useSendMessage() {
   const queryClient = useQueryClient();
   const { data: agents } = useAgents();
   const entityId = getUserEntityId();

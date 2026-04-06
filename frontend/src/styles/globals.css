@@ -134,16 +134,3 @@ body {
   display: inline-block;
 }
 
-/* Status bar */
-.stat-bar {
-  height: 12px;
-  border: 2px solid var(--color-ink);
-  background: #ddd;
-  position: relative;
-  flex: 1;
-  margin-left: 0.5rem;
-}
-.stat-fill {
-  height: 100%;
-  border-right: 2px solid var(--color-ink);
-}

@@ -1,7 +1,7 @@
 import { type IAgentRuntime, logger } from '@elizaos/core';
+import { apiCall } from './http.ts';
+import { DEFAULT_MESSAGE_SERVER_ID } from './constants.ts';
 
-const SERVER_PORT = process.env.SERVER_PORT || '3000';
-const SERVER_URL = process.env.SERVER_URL || `http://localhost:${SERVER_PORT}`;
 const TEAM_CHANNEL_NAME = 'Team Chat';
 const EXPECTED_AGENTS = 5;
 const MAX_RETRIES = 10;
@@ -13,18 +13,6 @@ let bootstrapInProgress = false;
 
 export function getTeamChannelId(): string | null {
   return teamChannelId;
-}
-
-async function apiCall(path: string, options?: RequestInit): Promise<any> {
-  const res = await fetch(`${SERVER_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`API ${path} failed (${res.status}): ${text}`);
-  }
-  return res.json();
 }
 
 async function waitForAgents(): Promise<boolean> {
@@ -60,8 +48,7 @@ export async function bootstrapTeamChannel(_runtime: IAgentRuntime): Promise<voi
       logger.warn('[BUDDIES] Not all agents registered, proceeding with available agents');
     }
 
-    // Use the default message server
-    const messageServerId = '00000000-0000-0000-0000-000000000000';
+    const messageServerId = DEFAULT_MESSAGE_SERVER_ID;
 
     // Check if team channel already exists
     const channelsRes = await apiCall(`/api/messaging/message-servers/${messageServerId}/channels`);

@@ -7,6 +7,7 @@ import { bootstrapTeamChannel } from './team-channel.ts';
 import { startAutonomousLoops } from './autonomous-loops.ts';
 import { loadAiConfig, saveAiConfig, invalidateAiConfigCache, type AiConfigState } from './ai-config.ts';
 import { startConfigServer } from './config-server.ts';
+import { AUTONOMOUS_STARTUP_DELAY_MS } from './constants.ts';
 
 let autonomousStarted = false;
 
@@ -46,11 +47,10 @@ const buddiesPlugin: Plugin = {
     // Start autonomous loops once (first agent to init wins)
     if (!autonomousStarted) {
       autonomousStarted = true;
-      // Delay to allow all agents and team channel to fully initialize
       setTimeout(() => {
         startAutonomousLoops();
         logger.info('[BUDDIES] Autonomous agent loops started');
-      }, 15_000);
+      }, AUTONOMOUS_STARTUP_DELAY_MS);
     }
   },
 };
