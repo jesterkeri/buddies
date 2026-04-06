@@ -91,9 +91,7 @@ function saveState(s: SettingsState): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
 }
 
-// Config server runs on port 3001 alongside ElizaOS
-// Use the same hostname as the page so it works on any domain (localhost, Nosana, Vercel, etc.)
-const CONFIG_SERVER = `${window.location.protocol}//${window.location.hostname}:3001`;
+import { CONFIG_SERVER } from '../../api/config';
 
 // Sync AI config to the backend so agents actually use it
 function syncAiConfigToBackend(aiConfig: AiConfig): void {

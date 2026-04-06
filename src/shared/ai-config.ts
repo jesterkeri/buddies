@@ -27,10 +27,9 @@ const DEFAULT_CONFIG: AiConfigState = {
   perAgent: {},
 };
 
-let cachedConfig: AiConfigState | null = null;
+let cachedConfig: AiConfigState = DEFAULT_CONFIG;
 
 export function loadAiConfig(): AiConfigState {
-  if (cachedConfig) return cachedConfig;
   try {
     if (existsSync(CONFIG_PATH)) {
       const raw = readFileSync(CONFIG_PATH, 'utf-8');
@@ -40,7 +39,6 @@ export function loadAiConfig(): AiConfigState {
   } catch (err) {
     logger.error(`[BUDDIES] Failed to load AI config: ${err}`);
   }
-  cachedConfig = DEFAULT_CONFIG;
   return cachedConfig;
 }
 

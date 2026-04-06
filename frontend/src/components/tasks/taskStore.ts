@@ -21,7 +21,7 @@ export interface Task {
 }
 
 const STORAGE_KEY = 'buddies-tasks';
-const CONFIG_SERVER = `${typeof window !== 'undefined' ? window.location.protocol : 'http:'}//${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:3001`;
+import { CONFIG_SERVER } from '../../api/config';
 
 function loadTasks(): Task[] {
   try {

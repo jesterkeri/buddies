@@ -59,7 +59,7 @@ export interface ProjectSessionState {
 }
 
 const STORAGE_KEY = 'buddies-project-session';
-const CONFIG_SERVER = `${typeof window !== 'undefined' ? window.location.protocol : 'http:'}//${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:3001`;
+import { CONFIG_SERVER } from '../../api/config';
 
 function defaultState(): ProjectSessionState {
   return {

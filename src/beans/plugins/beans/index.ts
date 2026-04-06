@@ -2,6 +2,8 @@ import type { Plugin, Action } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
 import { fireTrigger } from '../../../shared/triggers.ts';
 import { sendBreakReminder, sendCelebration, isTelegramConfigured } from '../../../shared/integrations/telegram.ts';
+import { placesContextProvider } from './providers/places-context.ts';
+import { findPlaces, type Place } from '../../../shared/places-service.ts';
 
 const checkWellness: Action = {
   name: 'CHECK_WELLNESS',
@@ -66,18 +68,62 @@ const celebrate: Action = {
 
 const recommendFood: Action = {
   name: 'RECOMMEND_FOOD',
-  similes: ['FIND_FOOD', 'RESTAURANT', 'CAFE', 'LUNCH', 'DINNER'],
-  description: 'Recommend food spots, cafes, or restaurants nearby. Use when the user is hungry or needs a break for food.',
+  similes: ['FIND_FOOD', 'RESTAURANT', 'CAFE', 'LUNCH', 'DINNER', 'HOTEL', 'FIND_HOTEL', 'FIND_CAFE'],
+  description: 'Find restaurants, cafes, or hotels near a location using real OpenStreetMap data. Use when the user asks about places to eat, stay, or get coffee.',
   validate: async () => true,
   handler: async (runtime, message, state, options, callback) => {
+    const text = (message.content?.text as string) || '';
+
+    // Extract location from message
+    const locationMatch = text.match(/(?:near|around|in|at|close to)\s+(.+?)(?:\?|$|\.|\!)/i);
+    const location = locationMatch ? locationMatch[1].trim() : '';
+
+    if (!location) {
+      if (callback) {
+        await callback({
+          text: `I'd love to find some great spots for you! 🍕 Where are you located? Tell me a city or area and I'll search nearby.`,
+          actions: ['RECOMMEND_FOOD'],
+        });
+      }
+      return { text: 'Need location', success: true };
+    }
+
+    // Detect what type of place
+    const lower = text.toLowerCase();
+    let types: ('restaurant' | 'hotel' | 'cafe')[] = ['restaurant', 'cafe'];
+    if (lower.includes('hotel') || lower.includes('stay') || lower.includes('accommodation')) types = ['hotel'];
+    else if (lower.includes('cafe') || lower.includes('coffee')) types = ['cafe'];
+    else if (lower.includes('restaurant') || lower.includes('food') || lower.includes('eat')) types = ['restaurant'];
+
+    const places = await findPlaces(location, types);
+
+    if (places.length === 0) {
+      if (callback) {
+        await callback({
+          text: `Hmm, I couldn't find any ${types[0]}s near "${location}" 😕 Try a more specific location or a bigger city name!`,
+          actions: ['RECOMMEND_FOOD'],
+        });
+      }
+      return { text: 'No places found', success: true };
+    }
+
+    const list = places.slice(0, 8).map((p, i) => {
+      let line = `${i + 1}. **${p.name}**`;
+      if (p.cuisine) line += ` (${p.cuisine})`;
+      if (p.address) line += ` — ${p.address}`;
+      if (p.openingHours) line += ` | Hours: ${p.openingHours}`;
+      if (p.phone) line += ` | ${p.phone}`;
+      return line;
+    }).join('\n');
+
     if (callback) {
       await callback({
-        text: `Time to refuel! 🍕 Let me find some good spots near you. A well-fed developer is a productive developer!`,
+        text: `Found ${places.length} ${types[0]}s near ${location}! 🎯\n\n${list}\n\nWant more details on any of these? 😊`,
         actions: ['RECOMMEND_FOOD'],
       });
     }
 
-    return { text: 'Food recommended', success: true };
+    return { text: `Found ${places.length} places`, success: true };
   },
   examples: [
     [
@@ -89,9 +135,9 @@ const recommendFood: Action = {
 
 const beansPlugin: Plugin = {
   name: 'beans-plugin',
-  description: 'Buddy capabilities — wellness, location recs, morale, music',
+  description: 'Buddy capabilities — wellness, real location recs via OpenStreetMap, morale',
   actions: [checkWellness, celebrate, recommendFood],
-  providers: [],
+  providers: [placesContextProvider],
   evaluators: [],
 };
 

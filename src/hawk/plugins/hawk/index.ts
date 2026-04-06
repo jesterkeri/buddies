@@ -2,6 +2,8 @@ import type { Plugin, Action } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
 import { fireTrigger } from '../../../shared/triggers.ts';
 import { sendSecurityAlert, isTelegramConfigured } from '../../../shared/integrations/telegram.ts';
+import { codeContextProvider } from './providers/code-context.ts';
+import { fetchFile, getRepoContext } from '../../../shared/github-service.ts';
 
 const reviewCode: Action = {
   name: 'REVIEW_CODE',
@@ -11,17 +13,43 @@ const reviewCode: Action = {
   handler: async (runtime, message, state, options, callback) => {
     agentStateManager.setState('Hawk', AgentStatus.REVIEWING, 'Code review');
 
+    const text = (message.content?.text as string) || '';
+
+    // Try to extract file paths from the message
+    const filePatterns = text.match(/[`"']([^`"']+\.[a-z]{1,4})[`"']/gi) || [];
+    const filePaths = filePatterns.map((f) => f.replace(/[`"']/g, ''));
+
+    let codeContext = '';
+
+    // Fetch specific files if mentioned
+    for (const path of filePaths.slice(0, 3)) {
+      const content = await fetchFile(path);
+      if (content) {
+        codeContext += `\n### File: ${path}\n\`\`\`\n${content.slice(0, 2000)}\n\`\`\`\n`;
+      }
+    }
+
+    // If no specific files, get repo overview
+    if (!codeContext) {
+      const repoCtx = await getRepoContext();
+      if (repoCtx) {
+        codeContext = repoCtx;
+      }
+    }
+
+    const reviewPrompt = codeContext
+      ? `Reviewing code from the connected repository:\n${codeContext}\n\nI'll check for security vulnerabilities, code quality, and suggest improvements with severity ratings (CRITICAL / HIGH / MEDIUM / LOW).`
+      : `I don't have access to the code yet. Either:\n1. Connect a GitHub repo in the Session tab\n2. Paste the code directly in the chat\n\nThen I'll review it for security, quality, and best practices.`;
+
     if (callback) {
       await callback({
-        text: `Reviewing the code now. I'll check for security vulnerabilities, code quality issues, and suggest improvements with severity ratings.`,
+        text: reviewPrompt,
         actions: ['REVIEW_CODE'],
       });
     }
 
-    // Send critical alerts to Telegram via Buddy
-    if (isTelegramConfigured()) {
-      const text = (message.content?.text as string) || '';
-      await sendSecurityAlert('HIGH', `Code review flagged issues in: ${text.slice(0, 100)}`);
+    if (isTelegramConfigured() && codeContext) {
+      await sendSecurityAlert('MEDIUM', `Code review initiated: ${text.slice(0, 100)}`);
     }
 
     fireTrigger('Hawk', 'REVIEW_CODE');
@@ -64,9 +92,9 @@ const generateTests: Action = {
 
 const hawkPlugin: Plugin = {
   name: 'hawk-plugin',
-  description: 'Code Reviewer capabilities — code review, security audits, testing',
+  description: 'Code Reviewer capabilities — code review with real repo access, security audits, testing',
   actions: [reviewCode, generateTests],
-  providers: [],
+  providers: [codeContextProvider],
   evaluators: [],
 };
 

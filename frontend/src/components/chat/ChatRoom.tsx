@@ -28,7 +28,7 @@ export default function ChatRoom() {
         <div className="text-center">
           <p className="font-display text-2xl" style={{ color: '#E41937' }}>NO SIGNAL</p>
           <p className="font-mono text-xs mt-2" style={{ color: 'rgba(242,244,243,0.4)' }}>
-            // Make sure backend is running at localhost:3000
+            // Make sure the backend is running
           </p>
         </div>
       </div>

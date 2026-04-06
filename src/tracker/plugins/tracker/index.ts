@@ -2,6 +2,8 @@ import type { Plugin, Action } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
 import { fireTrigger } from '../../../shared/triggers.ts';
 import { sendOpportunityAlert, isTelegramConfigured } from '../../../shared/integrations/telegram.ts';
+import { bountyContextProvider } from './providers/bounty-context.ts';
+import { fetchAllBounties, fetchCustomSource } from '../../../shared/bounty-service.ts';
 
 const scanOpportunities: Action = {
   name: 'SCAN_OPPORTUNITIES',
@@ -9,23 +11,35 @@ const scanOpportunities: Action = {
   description: 'Scan for hackathons, bug bounties, freelance gigs, grants, and job opportunities. Use when the user asks about opportunities or wants to find work.',
   validate: async () => true,
   handler: async (runtime, message, state, options, callback) => {
-    agentStateManager.setState('Bounty Hunter', AgentStatus.SCANNING, 'Scanning opportunities');
+    agentStateManager.setState('Bounty Hunter', AgentStatus.SCANNING, 'Scanning 10+ platforms');
+
+    // Fetch real bounty data from all sources
+    const listings = await fetchAllBounties();
+
+    const summary = listings.length > 0
+      ? listings.slice(0, 15).map((l, i) => {
+          let line = `${i + 1}. **${l.title}** (${l.source})`;
+          if (l.prize) line += ` — ${l.prize}`;
+          if (l.deadline) line += ` | Deadline: ${l.deadline}`;
+          if (l.url) line += `\n   ${l.url}`;
+          return line;
+        }).join('\n')
+      : 'No active listings found at this time. Try again later or provide a specific URL to scan.';
 
     if (callback) {
       await callback({
-        text: `Scanning platforms for opportunities matching your skill profile. I'll return the top matches with skill overlap percentage, prize pool, and deadline.`,
+        text: `Scanned ${listings.length} listings across Devpost, Devfolio, Superteam, Immunefi, and more:\n\n${summary}`,
         actions: ['SCAN_OPPORTUNITIES'],
       });
     }
 
-    // Send top opportunity to Telegram via Buddy
-    if (isTelegramConfigured()) {
-      await sendOpportunityAlert('New opportunities found', '95% match', 'Check Command Center');
+    if (isTelegramConfigured() && listings.length > 0) {
+      await sendOpportunityAlert(listings[0].title, listings[0].prize || 'TBD', listings[0].url || '');
     }
 
     fireTrigger('Bounty Hunter', 'SCAN_OPPORTUNITIES');
     agentStateManager.setState('Bounty Hunter', AgentStatus.IDLE);
-    return { text: 'Scan complete', success: true };
+    return { text: `Found ${listings.length} opportunities`, success: true };
   },
   examples: [
     [
@@ -63,9 +77,9 @@ const evaluateOpportunity: Action = {
 
 const trackerPlugin: Plugin = {
   name: 'tracker-plugin',
-  description: 'Bounty Hunter capabilities — opportunity scanning, skill matching',
+  description: 'Bounty Hunter capabilities — opportunity scanning, skill matching, live data from 10+ sources',
   actions: [scanOpportunities, evaluateOpportunity],
-  providers: [],
+  providers: [bountyContextProvider],
   evaluators: [],
 };
 

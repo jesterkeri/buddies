@@ -109,25 +109,23 @@
 
 ---
 
-## Phase 14: Frontend-Backend Rewire & AI Config (Day 17–18) ~~IN PROGRESS~~
+## Phase 14: Frontend-Backend Rewire & AI Config (Day 17–18) ~~DONE~~
 - [x] 74. Rewire chat to use ElizaOS Sessions API with HTTP transport
 - [x] 75. Per-agent AI provider config from frontend Connect tab
 - [x] 76. Config server (port 3001) for backend AI config persistence
 - [x] 77. WhatsApp-style message layout (user right, agent left)
 - [x] 78. Reply-to-message feature
 - [x] 79. Agent disconnect/connect from frontend sidebar
-- [ ] 80. Remove all placeholder/fake data from Intel and Missions tabs
-- [ ] 81. Ensure config syncs properly on deploy (no localhost hardcoding)
+- [x] 80. Remove all placeholder/fake data from Intel and Missions tabs
+- [x] 81. Ensure config syncs properly on deploy (no localhost hardcoding)
 
-## Phase 15: RAG Pipelines for Agents (Day 18–19)
-- [ ] 82. **Hawk RAG**: Ingest user's codebase (GitHub repo URL or paste) → vector store → code review with full context
-- [ ] 83. **Radar RAG**: Ingest documentation URLs, RSS feeds, GitHub release pages → research with real sources
-- [ ] 84. **Bounty Hunter RAG**: Ingest bounty/hackathon listings (Gitcoin, Devfolio, ETHGlobal, Superteam) → match against user skills
-- [ ] 85. **Chief RAG**: Ingest project README, task history, standup logs → context-aware prioritization
-- [ ] 86. **Buddy RAG**: Ingest local restaurant/cafe data, user preferences → personalized recommendations
-- [ ] 86a. **Buddy**: Google Places API integration — real photos, ratings, reviews for restaurants/hotels/cafes near user's location
-- [ ] 86b. **Buddy**: Unsplash API integration — stock photos matching food/location recommendations for visual responses
-- [ ] 87. Shared vector store across agents (ElizaOS memory + custom embeddings)
+## Phase 15: RAG Pipelines for Agents (Day 18–19) ~~DONE~~
+- [x] 82. **Hawk RAG**: Code context provider fetches files from connected GitHub repo for review
+- [x] 83. **Radar RAG**: Web research provider via Jina Reader (any URL → markdown) + npm registry for dependency checks
+- [x] 84. **Bounty Hunter RAG**: 10+ sources — Devpost, Devfolio, Superteam Earn, GitHub Issues (direct API) + Immunefi, Akindo, ETHGlobal, DoraHacks, Layer3, OnlyDust (via Jina Reader)
+- [x] 85. **Chief RAG**: Project context provider (task board + chat history) + shared repo context
+- [x] 86. **Buddy RAG**: OpenStreetMap places service — restaurants, hotels, cafes via Nominatim geocoding + Overpass API (free, no key)
+- [x] 87. Shared utilities: `web-fetch.ts` (Jina Reader wrapper), `bounty-service.ts`, `places-service.ts`
 
 ## Phase 16: Agent Feature Buildout (Day 18–19)
 - [ ] 88. **Hawk**: Accept GitHub PR URL → fetch diff → review with severity tags + inline suggestions
