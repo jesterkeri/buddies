@@ -11,7 +11,7 @@ import {
   listAgents,
   createAgentSession,
   sendMessage,
-  getTeamChannelMessages,
+  getAutonomousMessages,
   getAgentStates,
 } from './client';
 import { getUserEntityId, getAgentColor, type AgentInfo, type ChatMessage, type AgentState } from '../types';
@@ -105,44 +105,51 @@ export function useMessages() {
   return useQuery<ChatMessage[]>({
     queryKey: ['allMessages'],
     queryFn: async () => {
-      // Poll team channel for agent-to-agent messages
+      // Poll autonomous agent-to-agent messages from backend
       try {
-        const channelMsgs = await getTeamChannelMessages();
-        const agentMap = new Map<string, string>();
-        agents?.forEach((a) => agentMap.set(a.id, a.name));
+        const autoMsgs = await getAutonomousMessages();
 
-        for (const msg of channelMsgs) {
-          const id = msg.id || msg.messageId;
-          if (seenMessageIds.has(id)) continue;
-          seenMessageIds.add(id);
+        for (const msg of autoMsgs) {
+          const id = msg.id;
+          if (!id || seenMessageIds.has(id)) continue;
 
-          const authorId = msg.authorId || msg.author_id || msg.senderId || '';
-          const sourceType = msg.sourceType || msg.source_type || msg.source || '';
-          const agentName = sourceType === 'user' ? '' : (msg.metadata?.agentName || msg.senderName || agentMap.get(authorId) || '');
-          const isAgent = sourceType !== 'user' && !!agentName;
-          const rawContent = msg.content;
-          const content = typeof rawContent === 'string' ? rawContent : rawContent?.text || msg.text || '';
-
-          if (!content) continue;
-
-          const chatMsg: ChatMessage = {
-            id,
-            authorId,
-            authorName: isAgent ? agentName : 'You',
-            isAgent,
-            content,
-            timestamp: toEpoch(msg.createdAt || msg.created_at || msg.timestamp),
-            agentColor: isAgent ? getAgentColor(agentName) : undefined,
-          };
-
-          // Only add if not already in allMessages
-          if (!allMessages.some((m) => m.id === id)) {
-            allMessages.push(chatMsg);
+          // Add the sending agent's message
+          const sendId = `${id}-send`;
+          if (!seenMessageIds.has(sendId)) {
+            seenMessageIds.add(sendId);
+            allMessages.push({
+              id: sendId,
+              authorId: msg.from,
+              authorName: msg.from,
+              isAgent: true,
+              content: msg.content,
+              timestamp: msg.timestamp,
+              agentColor: getAgentColor(msg.from),
+            });
           }
+
+          // Add the responding agent's message
+          if (msg.response) {
+            const respId = `${id}-resp`;
+            if (!seenMessageIds.has(respId)) {
+              seenMessageIds.add(respId);
+              allMessages.push({
+                id: respId,
+                authorId: msg.to,
+                authorName: msg.to,
+                isAgent: true,
+                content: msg.response,
+                timestamp: msg.timestamp + 1, // Sort after the prompt
+                agentColor: getAgentColor(msg.to),
+              });
+            }
+          }
+
+          seenMessageIds.add(id);
         }
       } catch {}
 
-      // Sort by timestamp, deduplicate, and persist
+      // Sort by timestamp and persist
       allMessages.sort((a, b) => a.timestamp - b.timestamp);
       saveMessages(allMessages);
       return allMessages;

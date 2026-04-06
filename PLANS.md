@@ -141,16 +141,16 @@
 - [x] 98. All agents: Autonomous loops infrastructure built
 
 ## Phase 16B: Autonomous Agent Communication (Day 19) ~~DONE~~
-- [x] 98a. Fix autonomous loops startup — retries every 5s until team channel ready (max 5 min)
-- [x] 98b. Chief initiates standup on boot — fires once channel is ready
-- [x] 98c. Agents respond to each other — message bus + shouldRespond template + team channel participants
-- [x] 98d. Bounty Hunter periodic scans (4hr interval) → posts via sendAgentMessage
-- [x] 98e. Buddy wellness checks (90min interval) → posts via sendAgentMessage
-- [x] 98f. Radar dependency monitoring (6hr interval) → posts via sendAgentMessage
-- [x] 98g. Inter-agent trigger chains — triggers.ts sends messages that other agents evaluate
-- [x] 98h. Persistent conversations — ElizaOS SQLite memory persists across restarts
-- [x] 98i. Rate limiting — AGENT_COOLDOWN_MS (60s) prevents infinite loops
-- [x] 98j. Late agent registration — team-channel.ts retries adding agents 15s after bootstrap
+- [x] 98a. Autonomous loops retry until 2+ agents are connected (no team channel dependency)
+- [x] 98b. Chief standup — sends to each connected agent via sessions API, collects real responses
+- [x] 98c. Agent-to-agent via sessions API — HTTP transport, guaranteed responses, no team channel
+- [x] 98d. Bounty Hunter periodic scans → sends findings to Chief via session → Chief responds
+- [x] 98e. Buddy wellness checks → sends to Chief via session → Chief acknowledges
+- [x] 98f. Radar dependency monitoring → sends to Chief + Hawk via sessions → both respond
+- [x] 98g. Trigger chains → fireTrigger sends to each target agent individually via sessions
+- [x] 98h. Autonomous messages persisted to .buddies-autonomous-messages.json
+- [x] 98i. Rate limiting — AGENT_COOLDOWN_MS (60s), skip disconnected agents, skip busy agents
+- [x] 98j. Frontend polls /autonomous-messages endpoint, displays agent-to-agent exchanges in chat
 
 ## Phase 17: Nosana Deployment (Day 19)
 - [ ] 99. Build Docker image with all changes

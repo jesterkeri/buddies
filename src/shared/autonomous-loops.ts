@@ -1,7 +1,7 @@
 import { logger } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from './agent-state.ts';
 import { sendAgentMessage } from './agent-messenger.ts';
-import { getTeamChannelId } from './team-channel.ts';
+import { isAgentDisconnected } from './ai-config.ts';
 import {
   STANDUP_INTERVAL_MS,
   IDLE_CHECK_INTERVAL_MS,
@@ -21,16 +21,35 @@ interface AutonomousTask {
   handler: () => Promise<void>;
 }
 
+// Helper: get list of connected agent names (excluding a given agent)
+function getConnectedAgents(exclude: string): string[] {
+  const allAgents = ['Chief', 'Hawk', 'Radar', 'Bounty Hunter', 'Buddy'];
+  return allAgents.filter((a) => a !== exclude && !isAgentDisconnected(a));
+}
+
 const AUTONOMOUS_TASKS: AutonomousTask[] = [
   {
     agentName: 'Chief',
     taskName: 'standup',
     intervalMs: STANDUP_INTERVAL_MS,
     handler: async () => {
-      await sendAgentMessage(
-        'Chief',
-        'Team standup. Everyone, give me a quick status update — what are you working on and any blockers? Hawk, Radar, Bounty Hunter, Buddy — sound off.'
-      );
+      const connected = getConnectedAgents('Chief');
+      if (connected.length === 0) return;
+
+      logger.info(`[AUTONOMOUS] Chief starting standup with ${connected.length} agents`);
+
+      // Send status request to each connected agent, collect responses
+      const responses: string[] = [];
+      for (const agent of connected) {
+        const result = await sendAgentMessage('Chief', `Team standup. ${agent}, give me a quick status update — what are you working on and any blockers?`, agent);
+        if (result.sent && result.response) {
+          responses.push(`**${agent}:** ${result.response}`);
+        }
+      }
+
+      if (responses.length > 0) {
+        logger.info(`[AUTONOMOUS] Standup complete. ${responses.length} agents responded.`);
+      }
     },
   },
   {
@@ -43,15 +62,12 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
         (s) =>
           s.status === AgentStatus.IDLE &&
           s.agentName !== 'Chief' &&
+          !isAgentDisconnected(s.agentName) &&
           Date.now() - s.lastUpdated > IDLE_THRESHOLD_MS
       );
 
-      if (idleAgents.length > 0) {
-        const names = idleAgents.map((a) => `@${a.agentName}`).join(', ');
-        await sendAgentMessage(
-          'Chief',
-          `Checking in — ${names}, you've been quiet. Anything to report or need a task assignment?`
-        );
+      for (const idle of idleAgents) {
+        await sendAgentMessage('Chief', `Checking in — ${idle.agentName}, you've been quiet. Anything to report or need a task assignment?`, idle.agentName);
       }
     },
   },
@@ -60,9 +76,11 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
     taskName: 'opportunity-scan',
     intervalMs: OPPORTUNITY_SCAN_INTERVAL_MS,
     handler: async () => {
+      // Report findings to Chief for evaluation
       await sendAgentMessage(
         'Bounty Hunter',
-        'Just finished scanning for new opportunities. Chief, I have some matches worth reviewing — want me to break down the top prospects?'
+        'Just finished scanning for new opportunities across Devpost, Devfolio, Superteam, and more. Chief, I have matches worth reviewing — should I break down the top prospects?',
+        'Chief'
       );
     },
   },
@@ -71,9 +89,11 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
     taskName: 'wellness-check',
     intervalMs: WELLNESS_CHECK_INTERVAL_MS,
     handler: async () => {
+      // Buddy messages Chief and the user sees it via frontend polling
       await sendAgentMessage(
         'Buddy',
-        "Hey team! 🌟 Quick wellness check — everyone's been grinding. Time for a stretch break or a snack? Chief, maybe we can find a good stopping point soon!"
+        "Hey Chief! 🌟 Quick wellness check — the team has been grinding. Can we find a good stopping point soon? Everyone deserves a breather!",
+        'Chief'
       );
     },
   },
@@ -82,10 +102,21 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
     taskName: 'dependency-watch',
     intervalMs: DEPENDENCY_WATCH_INTERVAL_MS,
     handler: async () => {
-      await sendAgentMessage(
+      // Alert Chief and Hawk about dependency status
+      const chiefResult = await sendAgentMessage(
         'Radar',
-        'Dependency monitoring update. Running a check on our project dependencies for any breaking changes or security advisories. Hawk, I will flag anything that needs your review.'
+        'Dependency monitoring update. Running a check on project dependencies for breaking changes or security advisories. Chief, adding any findings to the board.',
+        'Chief'
       );
+
+      // If Chief acknowledges, also notify Hawk
+      if (chiefResult.sent) {
+        await sendAgentMessage(
+          'Radar',
+          'Hawk, flagging dependency updates for your review — check for any security implications in the affected files.',
+          'Hawk'
+        );
+      }
     },
   },
 ];
@@ -98,28 +129,30 @@ function isAgentBusy(agentName: string): boolean {
   return state.status === AgentStatus.WORKING || state.status === AgentStatus.MEETING;
 }
 
-const CHANNEL_POLL_INTERVAL_MS = 5_000; // Check every 5s
-const MAX_CHANNEL_RETRIES = 60; // Give up after 5 minutes
+const CHANNEL_POLL_INTERVAL_MS = 5_000;
+const MAX_CHANNEL_RETRIES = 60;
 
 export function startAutonomousLoops(): void {
   if (!AUTONOMOUS_ENABLED) {
-    logger.info('[BUDDIES] Autonomous loops disabled (AUTONOMOUS_ENABLED=false)');
+    logger.info('[AUTONOMOUS] Loops disabled (AUTONOMOUS_ENABLED=false)');
     return;
   }
 
-  // Retry until team channel is ready (don't give up on first try)
-  if (!getTeamChannelId()) {
-    logger.info('[BUDDIES] Team channel not ready, will retry...');
+  // Check if any agents are connected — no point running loops if nobody can respond
+  const connected = getConnectedAgents('');
+  if (connected.length < 2) {
+    logger.info(`[AUTONOMOUS] Only ${connected.length} agent(s) connected, need at least 2 for autonomous chat. Will retry...`);
     let retries = 0;
     const poller = setInterval(() => {
       retries++;
-      if (getTeamChannelId()) {
+      const nowConnected = getConnectedAgents('');
+      if (nowConnected.length >= 2) {
         clearInterval(poller);
-        logger.info(`[BUDDIES] Team channel ready after ${retries} retries, starting loops`);
+        logger.info(`[AUTONOMOUS] ${nowConnected.length} agents connected, starting loops`);
         launchLoops();
       } else if (retries >= MAX_CHANNEL_RETRIES) {
         clearInterval(poller);
-        logger.warn('[BUDDIES] Team channel never became ready, autonomous loops disabled');
+        logger.warn('[AUTONOMOUS] Not enough connected agents after 5 min, loops disabled');
       }
     }, CHANNEL_POLL_INTERVAL_MS);
     return;
@@ -129,31 +162,34 @@ export function startAutonomousLoops(): void {
 }
 
 function launchLoops(): void {
-  logger.info(`[BUDDIES] Starting autonomous loops for ${AUTONOMOUS_TASKS.length} tasks`);
+  logger.info(`[AUTONOMOUS] Starting ${AUTONOMOUS_TASKS.length} autonomous tasks`);
 
   AUTONOMOUS_TASKS.forEach((task, index) => {
     const key = `${task.agentName}:${task.taskName}`;
 
-    // Staggered initial run
+    // Skip if the agent isn't connected
+    if (isAgentDisconnected(task.agentName)) {
+      logger.info(`[AUTONOMOUS] Skipping ${key} — agent not connected`);
+      return;
+    }
+
     const initTimer = setTimeout(async () => {
       if (!isAgentBusy(task.agentName)) {
         try {
           await task.handler();
         } catch (err) {
-          logger.error(`[BUDDIES] Autonomous task ${key} failed: ${err}`);
+          logger.error(`[AUTONOMOUS] Task ${key} failed: ${err}`);
         }
       }
 
-      // Set up recurring interval
       const interval = setInterval(async () => {
-        if (isAgentBusy(task.agentName)) {
-          logger.info(`[BUDDIES] Skipping ${key} — agent is busy`);
+        if (isAgentBusy(task.agentName) || isAgentDisconnected(task.agentName)) {
           return;
         }
         try {
           await task.handler();
         } catch (err) {
-          logger.error(`[BUDDIES] Autonomous task ${key} failed: ${err}`);
+          logger.error(`[AUTONOMOUS] Task ${key} failed: ${err}`);
         }
       }, task.intervalMs);
 
@@ -173,5 +209,5 @@ export function stopAutonomousLoops(): void {
     }
   }
   activeTimers.clear();
-  logger.info('[BUDDIES] Autonomous loops stopped');
+  logger.info('[AUTONOMOUS] Loops stopped');
 }

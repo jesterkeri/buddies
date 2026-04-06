@@ -158,6 +158,24 @@ export function startConfigServer(): void {
       return;
     }
 
+    // ── Autonomous Messages (agent-to-agent) ──
+    if (req.method === 'GET' && req.url === '/autonomous-messages') {
+      const msgsPath = join(DATA_DIR, '.buddies-autonomous-messages.json');
+      try {
+        if (existsSync(msgsPath)) {
+          res.writeHead(200);
+          res.end(readFileSync(msgsPath, 'utf-8'));
+        } else {
+          res.writeHead(200);
+          res.end('[]');
+        }
+      } catch {
+        res.writeHead(200);
+        res.end('[]');
+      }
+      return;
+    }
+
     // ── Tasks ──
     if (req.method === 'GET' && req.url === '/tasks') {
       try {

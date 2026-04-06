@@ -103,12 +103,13 @@ export async function fireTrigger(sourceAgent: string, sourceAction: string): Pr
       }, MEETING_DURATION_MS);
     }
 
-    // Send a message from the source agent to the team channel
-    // This triggers ElizaOS shouldRespond evaluation for all other agents
+    // Send a message from the source agent to each target agent via sessions
     const messageKey = `${sourceAgent}:${sourceAction}`;
     const messageText = TRIGGER_MESSAGES[messageKey];
     if (messageText) {
-      await sendAgentMessage(sourceAgent, messageText);
+      for (const target of trigger.targetAgents) {
+        await sendAgentMessage(sourceAgent, messageText, target);
+      }
     }
   }
 }
