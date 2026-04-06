@@ -178,8 +178,45 @@ export function startAutonomousLoops(): void {
   launchLoops();
 }
 
+/**
+ * Session startup standup — every connected agent introduces themselves
+ * and reports status directly to the user. Runs once at session start.
+ */
+async function runStartupStandup(): Promise<void> {
+  const connected = getConnectedAgents('');
+  if (connected.length === 0) return;
+
+  logger.info(`[AUTONOMOUS] Running startup standup with ${connected.length} agents`);
+
+  // Chief kicks off the standup
+  if (!isAgentDisconnected('Chief')) {
+    await postToUser('Chief', `Session started. ${connected.length} agent(s) online. Running team standup.`);
+
+    // Ask each connected agent for their status and post responses to user
+    for (const agent of connected) {
+      if (agent === 'Chief') continue;
+      const result = await sendAgentMessage('Chief', `Quick status check — ${agent}, what can you help with today?`, agent);
+      if (result.sent && result.response) {
+        await postToUser(agent, result.response);
+      }
+    }
+
+    await postToUser('Chief', `Standup complete. All agents ready. @mention any agent or just ask — we'll route to the right one.`);
+  } else {
+    // If Chief isn't connected, each agent introduces themselves
+    for (const agent of connected) {
+      await postToUser(agent, `I'm online and ready to help.`);
+    }
+  }
+}
+
 function launchLoops(): void {
   logger.info(`[AUTONOMOUS] Starting ${AUTONOMOUS_TASKS.length} autonomous tasks`);
+
+  // Run startup standup immediately
+  runStartupStandup().catch((err) => {
+    logger.error(`[AUTONOMOUS] Startup standup failed: ${err}`);
+  });
 
   AUTONOMOUS_TASKS.forEach((task, index) => {
     const key = `${task.agentName}:${task.taskName}`;
