@@ -58,27 +58,63 @@ const checkDependencies: Action = {
 
     const text = (message.content?.text as string) || '';
 
-    // Extract package names from message
-    const packageNames = text.match(/(?:@[\w-]+\/)?[\w-]+/g)?.filter((w) =>
-      !['check', 'dependencies', 'deps', 'update', 'scan', 'the', 'my', 'our', 'for', 'any', 'are', 'there'].includes(w.toLowerCase())
-    ) || [];
+    // Try to fetch package.json from connected repo
+    const { fetchFile } = await import('../../../shared/github-service.ts');
+    const pkgJson = await fetchFile('package.json');
 
-    let depInfo = '';
-    for (const pkg of packageNames.slice(0, 5)) {
+    let deps: Record<string, string> = {};
+    if (pkgJson) {
       try {
-        const res = await fetch(`https://registry.npmjs.org/${encodeURIComponent(pkg)}`);
-        if (res.ok) {
-          const data = await res.json();
-          const latest = data['dist-tags']?.latest;
-          const desc = data.description || '';
-          depInfo += `- **${pkg}** v${latest} — ${desc}\n`;
-        }
+        const parsed = JSON.parse(pkgJson);
+        deps = { ...parsed.dependencies, ...parsed.devDependencies };
       } catch {}
     }
 
+    // Also extract package names from user message
+    const mentioned = text.match(/(?:@[\w-]+\/)?[\w-]+/g)?.filter((w) =>
+      !['check', 'dependencies', 'deps', 'update', 'scan', 'the', 'my', 'our', 'for', 'any', 'are', 'there', 'on', 'and', 'of'].includes(w.toLowerCase())
+    ) || [];
+
+    // Combine repo deps + mentioned packages
+    const packagesToCheck = Object.keys(deps).length > 0
+      ? Object.entries(deps).slice(0, 15)
+      : mentioned.slice(0, 10).map((n) => [n, 'unknown']);
+
+    let depInfo = '';
+    let breakingChanges: string[] = [];
+
+    for (const [pkg, currentVer] of packagesToCheck) {
+      try {
+        const data = await fetchJSON(`https://registry.npmjs.org/${encodeURIComponent(pkg)}`);
+        if (!data) continue;
+        const latest = data['dist-tags']?.latest;
+        if (!latest) continue;
+
+        const currentMajor = String(currentVer).replace(/[\^~>=<]/g, '').split('.')[0];
+        const latestMajor = latest.split('.')[0];
+        const isBreaking = currentMajor !== 'unknown' && currentMajor !== latestMajor;
+
+        let line = `- **${pkg}** ${currentVer} → v${latest}`;
+        if (isBreaking) {
+          line += ` ⚠️ BREAKING (major bump ${currentMajor} → ${latestMajor})`;
+          breakingChanges.push(pkg);
+        }
+        depInfo += line + '\n';
+      } catch {}
+    }
+
+    // Fetch changelogs for breaking changes
+    let migrationInfo = '';
+    for (const pkg of breakingChanges.slice(0, 3)) {
+      const changelog = await fetchWebPage(`https://github.com/search?q=${encodeURIComponent(pkg)}+changelog&type=repositories`);
+      if (changelog) {
+        migrationInfo += `\n### ${pkg} migration notes:\n${changelog.slice(0, 500)}\n`;
+      }
+    }
+
     const response = depInfo
-      ? `Dependency check results:\n\n${depInfo}\nI've checked the npm registry for the latest versions. Let me know if you want me to check for security advisories on any of these.`
-      : `I'll scan your project dependencies for updates and security issues. Connect a GitHub repo in the Session tab so I can read your package.json, or list the packages you want me to check.`;
+      ? `Dependency scan (${packagesToCheck.length} packages):\n\n${depInfo}${breakingChanges.length > 0 ? `\n⚠️ **${breakingChanges.length} breaking changes detected!**${migrationInfo}` : '\n✅ No breaking changes detected.'}`
+      : `Connect a GitHub repo in the Session tab so I can read your package.json, or list specific packages to check.`;
 
     if (callback) {
       await callback({
@@ -89,7 +125,7 @@ const checkDependencies: Action = {
 
     fireTrigger('Radar', 'CHECK_DEPENDENCIES');
     agentStateManager.setState('Radar', AgentStatus.IDLE);
-    return { text: 'Dependency check complete', success: true };
+    return { text: `Checked ${packagesToCheck.length} deps, ${breakingChanges.length} breaking`, success: true };
   },
   examples: [
     [

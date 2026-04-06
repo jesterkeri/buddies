@@ -16,10 +16,46 @@ const scanOpportunities: Action = {
     // Fetch real bounty data from all sources
     const listings = await fetchAllBounties();
 
-    const summary = listings.length > 0
-      ? listings.slice(0, 15).map((l, i) => {
+    // Read user skills from config for match scoring
+    const { getSessionConfig } = await import('../../../shared/config-server.ts');
+    let userSkills: string[] = [];
+    try {
+      const session = getSessionConfig();
+      // Try to read onboarding profile from config
+      const fs = await import('fs');
+      const path = await import('path');
+      const onboardingPath = path.join(process.cwd(), '.buddies-onboarding.json');
+      if (fs.existsSync(onboardingPath)) {
+        const profile = JSON.parse(fs.readFileSync(onboardingPath, 'utf-8'));
+        userSkills = [
+          ...(profile.languages || []),
+          ...(profile.frameworks || []),
+          ...(profile.chains || []),
+        ].map((s: string) => s.toLowerCase());
+      }
+    } catch {}
+
+    // Score listings by skill match
+    function scoreMatch(listing: typeof listings[0]): number {
+      if (userSkills.length === 0) return 0;
+      const tags = (listing.tags || []).map((t) => t.toLowerCase());
+      const titleWords = listing.title.toLowerCase().split(/\s+/);
+      const allWords = [...tags, ...titleWords];
+      const matches = userSkills.filter((s) => allWords.some((w) => w.includes(s) || s.includes(w)));
+      return Math.min(100, Math.round((matches.length / userSkills.length) * 100));
+    }
+
+    // Sort by match score if user has skills
+    const scored = listings.map((l) => ({ ...l, matchScore: scoreMatch(l) }));
+    if (userSkills.length > 0) {
+      scored.sort((a, b) => b.matchScore - a.matchScore);
+    }
+
+    const summary = scored.length > 0
+      ? scored.slice(0, 15).map((l, i) => {
           let line = `${i + 1}. **${l.title}** (${l.source})`;
-          if (l.prize) line += ` — ${l.prize}`;
+          if (l.matchScore > 0) line += ` — ${l.matchScore}% match`;
+          if (l.prize) line += ` | ${l.prize}`;
           if (l.deadline) line += ` | Deadline: ${l.deadline}`;
           if (l.url) line += `\n   ${l.url}`;
           return line;

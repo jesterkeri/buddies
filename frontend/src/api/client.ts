@@ -54,6 +54,25 @@ export async function getMessages(sessionId: string): Promise<any[]> {
   return d?.messages || d?.data?.messages || d?.data || [];
 }
 
+// ── Team Channel Messages (agent-to-agent) ──
+
+export async function getTeamChannelMessages(): Promise<any[]> {
+  try {
+    // Find the GROUP team channel
+    const channelsData = await api<any>('/api/messaging/message-servers/00000000-0000-0000-0000-000000000000/channels');
+    const channels = channelsData?.data?.channels || channelsData?.data || [];
+    const teamChannel = Array.isArray(channels)
+      ? channels.find((c: any) => c.type === 'GROUP' && c.name === 'Team Chat')
+      : null;
+    if (!teamChannel) return [];
+
+    const messagesData = await api<any>(`/api/messaging/channels/${teamChannel.id}/messages`);
+    return messagesData?.data?.messages || messagesData?.messages || messagesData?.data || [];
+  } catch {
+    return [];
+  }
+}
+
 // ── Agent States ──
 
 export async function getAgentStates(): Promise<any[]> {

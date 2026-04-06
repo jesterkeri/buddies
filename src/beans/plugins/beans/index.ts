@@ -149,9 +149,13 @@ const startPomodoro: Action = {
     }
 
     // Schedule break reminder after 25 minutes
+    const { sendAgentMessage } = await import('../../../shared/agent-messenger.ts');
     setTimeout(async () => {
       agentStateManager.setState('Buddy', AgentStatus.IDLE);
-      // The autonomous loops or next message will pick up the break reminder
+      await sendAgentMessage(
+        'Buddy',
+        "⏱️ BREAK TIME! 🎉 Your 25-minute Pomodoro is up! Take a 5-minute break — stretch, grab water, look away from the screen. You earned it! 💪"
+      );
     }, 25 * 60 * 1000);
 
     return { text: 'Pomodoro started', success: true };

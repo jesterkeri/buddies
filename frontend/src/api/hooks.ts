@@ -11,7 +11,7 @@ import {
   listAgents,
   createAgentSession,
   sendMessage,
-  getMessages,
+  getTeamChannelMessages,
   getAgentStates,
 } from './client';
 import { getUserEntityId, getAgentColor, type AgentInfo, type ChatMessage, type AgentState } from '../types';
@@ -73,13 +73,64 @@ export function useTeamSession() {
 
 // Store all chat messages in a single local array
 let allMessages: ChatMessage[] = [];
+const seenMessageIds = new Set<string>();
+
+function toEpoch(v: any): number {
+  if (!v) return Date.now();
+  if (typeof v === 'number') return v;
+  const ms = new Date(v).getTime();
+  return isNaN(ms) ? Date.now() : ms;
+}
 
 export function useMessages() {
+  const { data: agents } = useAgents();
+
   return useQuery<ChatMessage[]>({
     queryKey: ['allMessages'],
-    queryFn: () => allMessages,
-    staleTime: 1_000,
-    refetchInterval: 2_000,
+    queryFn: async () => {
+      // Poll team channel for agent-to-agent messages
+      try {
+        const channelMsgs = await getTeamChannelMessages();
+        const agentMap = new Map<string, string>();
+        agents?.forEach((a) => agentMap.set(a.id, a.name));
+
+        for (const msg of channelMsgs) {
+          const id = msg.id || msg.messageId;
+          if (seenMessageIds.has(id)) continue;
+          seenMessageIds.add(id);
+
+          const authorId = msg.authorId || msg.author_id || msg.senderId || '';
+          const sourceType = msg.sourceType || msg.source_type || msg.source || '';
+          const agentName = sourceType === 'user' ? '' : (msg.metadata?.agentName || msg.senderName || agentMap.get(authorId) || '');
+          const isAgent = sourceType !== 'user' && !!agentName;
+          const rawContent = msg.content;
+          const content = typeof rawContent === 'string' ? rawContent : rawContent?.text || msg.text || '';
+
+          if (!content) continue;
+
+          const chatMsg: ChatMessage = {
+            id,
+            authorId,
+            authorName: isAgent ? agentName : 'You',
+            isAgent,
+            content,
+            timestamp: toEpoch(msg.createdAt || msg.created_at || msg.timestamp),
+            agentColor: isAgent ? getAgentColor(agentName) : undefined,
+          };
+
+          // Only add if not already in allMessages
+          if (!allMessages.some((m) => m.id === id)) {
+            allMessages.push(chatMsg);
+          }
+        }
+      } catch {}
+
+      // Sort by timestamp and deduplicate
+      allMessages.sort((a, b) => a.timestamp - b.timestamp);
+      return allMessages;
+    },
+    staleTime: 3_000,
+    refetchInterval: 5_000,
   });
 }
 
@@ -103,6 +154,7 @@ export function useSendMessage() {
         content,
         timestamp: Date.now(),
       };
+      seenMessageIds.add(userMsg.id);
       allMessages = [...allMessages, userMsg];
       queryClient.setQueryData<ChatMessage[]>(['allMessages'], allMessages);
 
@@ -150,6 +202,7 @@ export function useSendMessage() {
           timestamp: Date.now(),
           agentColor: targetAgent.color,
         };
+        seenMessageIds.add(responseMsg.id);
         allMessages = [...allMessages, responseMsg];
         queryClient.setQueryData<ChatMessage[]>(['allMessages'], allMessages);
 
