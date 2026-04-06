@@ -190,18 +190,48 @@ async function runStartupStandup(): Promise<void> {
 
   // Chief kicks off the standup
   if (!isAgentDisconnected('Chief')) {
-    await postToUser('Chief', `Session started. ${connected.length} agent(s) online. Running team standup.`);
+    await postToUser('Chief', `Session started. ${connected.length} agent(s) online. Running team standup — checking what happened since last session.`);
 
-    // Ask each connected agent for their status and post responses to user
+    // Ask each agent about their previous activity and current status
     for (const agent of connected) {
       if (agent === 'Chief') continue;
-      const result = await sendAgentMessage('Chief', `Quick status check — ${agent}, what can you help with today?`, agent);
+
+      const prompt = agent === 'Hawk'
+        ? 'Standup check-in. Report any code reviews or security findings from the last session, and what you can help with now.'
+        : agent === 'Bounty Hunter'
+        ? 'Standup check-in. Report any opportunities or hackathons you found recently, and what you are scanning for now.'
+        : agent === 'Buddy'
+        ? 'Standup check-in. How was the last session — any break reminders sent? How is the team doing? What should we watch for today?'
+        : agent === 'Radar'
+        ? 'Standup check-in. Report any dependency updates, research findings, or alerts from the last session. Anything we need to watch?'
+        : 'Standup check-in. Report your previous activity and current status.';
+
+      const result = await sendAgentMessage('Chief', prompt, agent);
       if (result.sent && result.response) {
         await postToUser(agent, result.response);
       }
     }
 
-    await postToUser('Chief', `Standup complete. All agents ready. @mention any agent or just ask — we'll route to the right one.`);
+    // Chief's own summary
+    // Read task state for Chief's report
+    let taskSummary = '';
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      const { DATA_DIR } = await import('./constants.ts');
+      const tasksPath = path.join(DATA_DIR, '.buddies-tasks.json');
+      if (fs.existsSync(tasksPath)) {
+        const tasks = JSON.parse(fs.readFileSync(tasksPath, 'utf-8'));
+        if (Array.isArray(tasks) && tasks.length > 0) {
+          const done = tasks.filter((t: any) => t.status === 'done').length;
+          const active = tasks.filter((t: any) => t.status === 'in_progress').length;
+          const todo = tasks.filter((t: any) => t.status === 'todo').length;
+          taskSummary = ` Mission board: ${done} done, ${active} active, ${todo} queued.`;
+        }
+      }
+    } catch {}
+
+    await postToUser('Chief', `Standup complete.${taskSummary} All agents reporting. @mention any agent or just ask — we'll route to the right one.`);
   } else {
     // If Chief isn't connected, each agent introduces themselves
     for (const agent of connected) {
