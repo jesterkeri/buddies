@@ -1,6 +1,6 @@
 import { logger } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from './agent-state.ts';
-import { sendAgentMessage } from './agent-messenger.ts';
+import { sendAgentMessage, postToUser } from './agent-messenger.ts';
 import { isAgentDisconnected } from './ai-config.ts';
 import {
   STANDUP_INTERVAL_MS,
@@ -89,11 +89,10 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
     taskName: 'wellness-check',
     intervalMs: WELLNESS_CHECK_INTERVAL_MS,
     handler: async () => {
-      // Buddy messages Chief and the user sees it via frontend polling
-      await sendAgentMessage(
+      // Buddy talks directly to the user — no routing through Chief
+      await postToUser(
         'Buddy',
-        "Hey Chief! 🌟 Quick wellness check — the team has been grinding. Can we find a good stopping point soon? Everyone deserves a breather!",
-        'Chief'
+        "Hey! 🌟 Quick wellness check — you've been working for a while. Time to stretch, grab water, or take a short walk. Your code will still be here when you get back! 💪"
       );
     },
   },

@@ -128,8 +128,8 @@ export function useMessages() {
             });
           }
 
-          // Add the responding agent's message
-          if (msg.response) {
+          // Add the responding agent's message (skip if sent to User — one-way)
+          if (msg.response && msg.to !== 'User') {
             const respId = `${id}-resp`;
             if (!seenMessageIds.has(respId)) {
               seenMessageIds.add(respId);
@@ -139,7 +139,7 @@ export function useMessages() {
                 authorName: msg.to,
                 isAgent: true,
                 content: msg.response,
-                timestamp: msg.timestamp + 1, // Sort after the prompt
+                timestamp: msg.timestamp + 1,
                 agentColor: getAgentColor(msg.to),
               });
             }

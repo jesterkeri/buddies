@@ -190,6 +190,23 @@ export async function sendAgentMessage(
 }
 
 /**
+ * Post a message directly to the user's chat (no agent response needed).
+ * Used by Buddy for wellness checks, break reminders, session tracking.
+ * The message appears in the frontend chat as a one-way agent message.
+ */
+export async function postToUser(agentName: string, text: string): Promise<void> {
+  const msg: AgentMessage = {
+    id: `user-msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    from: agentName,
+    to: 'User',
+    content: text,
+    timestamp: Date.now(),
+  };
+  storeMessage(msg);
+  logger.info(`[MESSENGER] ${agentName} → User: ${text.slice(0, 80)}...`);
+}
+
+/**
  * Get stored autonomous messages for frontend display.
  */
 export function getStoredMessages(): AgentMessage[] {
