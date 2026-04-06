@@ -4,6 +4,7 @@ import { fireTrigger } from '../../../shared/triggers.ts';
 import { sendSecurityAlert, isTelegramConfigured } from '../../../shared/integrations/telegram.ts';
 import { codeContextProvider } from './providers/code-context.ts';
 import { fetchFile, getRepoContext } from '../../../shared/github-service.ts';
+import { securityAudit } from './actions/security-audit.ts';
 
 const reviewCode: Action = {
   name: 'REVIEW_CODE',
@@ -93,7 +94,7 @@ const generateTests: Action = {
 const hawkPlugin: Plugin = {
   name: 'hawk-plugin',
   description: 'Code Reviewer capabilities — code review with real repo access, security audits, testing',
-  actions: [reviewCode, generateTests],
+  actions: [reviewCode, generateTests, securityAudit],
   providers: [codeContextProvider],
   evaluators: [],
 };

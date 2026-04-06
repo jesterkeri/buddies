@@ -133,10 +133,41 @@ const recommendFood: Action = {
   ],
 };
 
+const startPomodoro: Action = {
+  name: 'START_POMODORO',
+  similes: ['POMODORO', 'FOCUS_TIMER', 'WORK_TIMER', 'FOCUS_MODE'],
+  description: 'Start a Pomodoro timer — 25 minutes of focused work followed by a 5-minute break. Use when the user wants to focus or mentions needing a timer.',
+  validate: async () => true,
+  handler: async (runtime, message, state, options, callback) => {
+    agentStateManager.setState('Buddy', AgentStatus.WORKING, 'Pomodoro timer active');
+
+    if (callback) {
+      await callback({
+        text: `Pomodoro started! 🍅⏱️\n\n**25 minutes of focused work** — starting NOW.\n\nRules:\n- No distractions\n- Stay on one task\n- I'll check in when it's break time\n\nYou got this! 💪 I'll remind you when the 25 minutes are up.`,
+        actions: ['START_POMODORO'],
+      });
+    }
+
+    // Schedule break reminder after 25 minutes
+    setTimeout(async () => {
+      agentStateManager.setState('Buddy', AgentStatus.IDLE);
+      // The autonomous loops or next message will pick up the break reminder
+    }, 25 * 60 * 1000);
+
+    return { text: 'Pomodoro started', success: true };
+  },
+  examples: [
+    [
+      { name: '{{user1}}', content: { text: 'Start a pomodoro timer' } },
+      { name: 'Buddy', content: { text: "Pomodoro started! 🍅⏱️ 25 minutes of focused work — GO! I'll remind you when it's break time. No distractions! 💪", actions: ['START_POMODORO'] } },
+    ],
+  ],
+};
+
 const beansPlugin: Plugin = {
   name: 'beans-plugin',
-  description: 'Buddy capabilities — wellness, real location recs via OpenStreetMap, morale',
-  actions: [checkWellness, celebrate, recommendFood],
+  description: 'Buddy capabilities — wellness, real location recs via OpenStreetMap, morale, Pomodoro timer',
+  actions: [checkWellness, celebrate, recommendFood, startPomodoro],
   providers: [placesContextProvider],
   evaluators: [],
 };

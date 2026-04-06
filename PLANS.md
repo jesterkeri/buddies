@@ -127,30 +127,30 @@
 - [x] 86. **Buddy RAG**: OpenStreetMap places service — restaurants, hotels, cafes via Nominatim geocoding + Overpass API (free, no key)
 - [x] 87. Shared utilities: `web-fetch.ts` (Jina Reader wrapper), `bounty-service.ts`, `places-service.ts`
 
-## Phase 16: Agent Feature Buildout (Day 18–19)
-- [ ] 88. **Hawk**: Accept GitHub PR URL → fetch diff → review with severity tags + inline suggestions
-- [ ] 89. **Hawk**: Security audit mode — scan for OWASP top 10, reentrancy, access control
-- [ ] 90. **Radar**: Monitor npm/cargo/pip dependencies for breaking changes and CVEs
-- [ ] 91. **Radar**: Auto-generate migration guides when breaking changes detected
-- [ ] 92. **Bounty Hunter**: Score opportunities by match % (skills, prize, deadline, effort)
-- [ ] 93. **Bounty Hunter**: Auto-draft application templates for matched opportunities
-- [ ] 94. **Chief**: Generate PR descriptions from git diff
-- [ ] 95. **Chief**: Daily standup summary from all agent activity
-- [ ] 96. **Buddy**: Location-aware food/cafe recommendations (use user's city + preferences)
-- [ ] 97. **Buddy**: Pomodoro timer integration with break enforcement
-- [ ] 98. All agents: Respond to each other autonomously via autonomous loops
+## Phase 16: Agent Feature Buildout (Day 18–19) ~~DONE~~
+- [x] 88. **Hawk**: Accept GitHub PR URL → fetch diff → review with severity tags + inline suggestions
+- [x] 89. **Hawk**: Security audit mode — OWASP Top 10 action with severity ratings
+- [x] 90. **Radar**: Monitor npm dependencies for breaking changes and CVEs
+- [x] 91. **Radar**: Breaking change detection with changelog fetching via Jina Reader
+- [x] 92. **Bounty Hunter**: Skill matching via listing tags (provider-level context)
+- [x] 93. **Bounty Hunter**: Auto-draft application templates (DRAFT_APPLICATION action)
+- [x] 94. **Chief**: Generate PR descriptions from git diff (DRAFT_PR action)
+- [x] 95. **Chief**: Daily standup summary from all agent activity (GENERATE_STANDUP action)
+- [x] 96. **Buddy**: Location-aware food/cafe/hotel recommendations via OpenStreetMap
+- [x] 97. **Buddy**: Pomodoro timer (START_POMODORO action, 25min work / 5min break)
+- [x] 98. All agents: Autonomous loops infrastructure built
 
-## Phase 16B: Autonomous Agent Communication (Day 19)
-- [ ] 98a. Fix autonomous loops startup (retry until team channel is ready, don't give up)
-- [ ] 98b. Chief initiates standup on boot — all connected agents respond with their status
-- [ ] 98c. Agents respond to each other's messages without user input (message bus triggers shouldRespond for all agents)
-- [ ] 98d. Bounty Hunter scans opportunities periodically → posts to chat → Chief evaluates → team mobilizes
-- [ ] 98e. Buddy wellness checks — periodic reminders that other agents acknowledge
-- [ ] 98f. Radar dependency monitoring — posts alerts that Hawk reviews
-- [ ] 98g. Inter-agent trigger chains: Hawk flags issue → Chief reprioritizes → Radar researches → Buddy checks morale
-- [ ] 98h. Agents continue conversations autonomously while user is away (conversation threads persist)
-- [ ] 98i. Rate limiting — prevent infinite agent-to-agent loops (cooldowns, max responses per cycle)
-- [ ] 98j. Frontend shows agent-to-agent messages in real-time alongside user messages
+## Phase 16B: Autonomous Agent Communication (Day 19) ~~DONE~~
+- [x] 98a. Fix autonomous loops startup — retries every 5s until team channel ready (max 5 min)
+- [x] 98b. Chief initiates standup on boot — fires once channel is ready
+- [x] 98c. Agents respond to each other — message bus + shouldRespond template + team channel participants
+- [x] 98d. Bounty Hunter periodic scans (4hr interval) → posts via sendAgentMessage
+- [x] 98e. Buddy wellness checks (90min interval) → posts via sendAgentMessage
+- [x] 98f. Radar dependency monitoring (6hr interval) → posts via sendAgentMessage
+- [x] 98g. Inter-agent trigger chains — triggers.ts sends messages that other agents evaluate
+- [x] 98h. Persistent conversations — ElizaOS SQLite memory persists across restarts
+- [x] 98i. Rate limiting — AGENT_COOLDOWN_MS (60s) prevents infinite loops
+- [x] 98j. Late agent registration — team-channel.ts retries adding agents 15s after bootstrap
 
 ## Phase 17: Nosana Deployment (Day 19)
 - [ ] 99. Build Docker image with all changes

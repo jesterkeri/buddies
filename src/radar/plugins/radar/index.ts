@@ -2,7 +2,7 @@ import type { Plugin, Action } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
 import { fireTrigger } from '../../../shared/triggers.ts';
 import { researchContextProvider } from './providers/research-context.ts';
-import { fetchWebPage } from '../../../shared/web-fetch.ts';
+import { fetchWebPage, fetchJSON } from '../../../shared/web-fetch.ts';
 
 const researchTopic: Action = {
   name: 'RESEARCH_TOPIC',

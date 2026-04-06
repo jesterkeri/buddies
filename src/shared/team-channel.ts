@@ -112,6 +112,26 @@ export async function bootstrapTeamChannel(_runtime: IAgentRuntime): Promise<voi
 
     bootstrapComplete = true;
     logger.info('[BUDDIES] Team channel bootstrap complete');
+
+    // Keep trying to add missing agents (Chief often registers late due to timeout)
+    setTimeout(async () => {
+      try {
+        const lateAgentsRes = await apiCall('/api/agents');
+        const lateAgents = lateAgentsRes?.data?.agents || lateAgentsRes?.agents || lateAgentsRes?.data || [];
+        const lateIds = Array.isArray(lateAgents)
+          ? lateAgents.map((a: any) => a.id || a.agentId).filter(Boolean)
+          : [];
+        for (const agentId of lateIds) {
+          try {
+            await apiCall(`/api/messaging/channels/${teamChannelId}/agents`, {
+              method: 'POST',
+              body: JSON.stringify({ agentId }),
+            });
+          } catch {}
+        }
+        logger.info(`[BUDDIES] Late agent registration: added ${lateIds.length} agents to team channel`);
+      } catch {}
+    }, 15_000); // Wait 15s for Chief to finish registering
   } catch (err) {
     logger.error(`[BUDDIES] Team channel bootstrap failed (will retry on next startup): ${err}`);
   } finally {

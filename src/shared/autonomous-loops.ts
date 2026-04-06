@@ -98,17 +98,37 @@ function isAgentBusy(agentName: string): boolean {
   return state.status === AgentStatus.WORKING || state.status === AgentStatus.MEETING;
 }
 
+const CHANNEL_POLL_INTERVAL_MS = 5_000; // Check every 5s
+const MAX_CHANNEL_RETRIES = 60; // Give up after 5 minutes
+
 export function startAutonomousLoops(): void {
   if (!AUTONOMOUS_ENABLED) {
     logger.info('[BUDDIES] Autonomous loops disabled (AUTONOMOUS_ENABLED=false)');
     return;
   }
 
+  // Retry until team channel is ready (don't give up on first try)
   if (!getTeamChannelId()) {
-    logger.warn('[BUDDIES] Cannot start autonomous loops — team channel not ready');
+    logger.info('[BUDDIES] Team channel not ready, will retry...');
+    let retries = 0;
+    const poller = setInterval(() => {
+      retries++;
+      if (getTeamChannelId()) {
+        clearInterval(poller);
+        logger.info(`[BUDDIES] Team channel ready after ${retries} retries, starting loops`);
+        launchLoops();
+      } else if (retries >= MAX_CHANNEL_RETRIES) {
+        clearInterval(poller);
+        logger.warn('[BUDDIES] Team channel never became ready, autonomous loops disabled');
+      }
+    }, CHANNEL_POLL_INTERVAL_MS);
     return;
   }
 
+  launchLoops();
+}
+
+function launchLoops(): void {
   logger.info(`[BUDDIES] Starting autonomous loops for ${AUTONOMOUS_TASKS.length} tasks`);
 
   AUTONOMOUS_TASKS.forEach((task, index) => {

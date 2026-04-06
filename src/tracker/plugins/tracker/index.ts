@@ -75,10 +75,46 @@ const evaluateOpportunity: Action = {
   ],
 };
 
+const draftApplication: Action = {
+  name: 'DRAFT_APPLICATION',
+  similes: ['WRITE_APPLICATION', 'APPLY', 'APPLICATION_TEMPLATE'],
+  description: 'Draft an application or proposal for a specific bounty, hackathon, or grant opportunity.',
+  validate: async () => true,
+  handler: async (runtime, message, state, options, callback) => {
+    agentStateManager.setState('Bounty Hunter', AgentStatus.WORKING, 'Drafting application');
+
+    const text = (message.content?.text as string) || '';
+
+    // Fetch the opportunity details if a URL is provided
+    const urls = text.match(/https?:\/\/[^\s]+/g);
+    let opportunityContext = '';
+    if (urls && urls.length > 0) {
+      const content = await fetchCustomSource(urls[0]);
+      if (content) opportunityContext = `\n\nOpportunity details:\n${content}`;
+    }
+
+    if (callback) {
+      await callback({
+        text: `Drafting your application template. Here's a structured proposal you can customize:\n\n**1. Introduction** — Who you are and your relevant experience\n**2. Technical Approach** — How you'll solve the problem\n**3. Timeline** — Milestones and deliverables\n**4. Team** — Your skills and any collaborators\n**5. Budget** — How you'll use the prize/grant\n\nPaste the opportunity URL and I'll tailor it to the specific requirements.${opportunityContext}`,
+        actions: ['DRAFT_APPLICATION'],
+      });
+    }
+
+    agentStateManager.setState('Bounty Hunter', AgentStatus.IDLE);
+    return { text: 'Application drafted', success: true };
+  },
+  examples: [
+    [
+      { name: '{{user1}}', content: { text: 'Draft an application for the Nosana hackathon' } },
+      { name: 'Bounty Hunter', content: { text: 'Here\'s your application template for Nosana ElizaOS Challenge:\n\n**Project:** Buddies — Multi-agent productivity platform\n**Track:** ElizaOS Integration\n**Prize Target:** $3K\n\n**Technical Approach:** 5 specialized AI agents built on ElizaOS v2...', actions: ['DRAFT_APPLICATION'] } },
+    ],
+  ],
+};
+
 const trackerPlugin: Plugin = {
   name: 'tracker-plugin',
-  description: 'Bounty Hunter capabilities — opportunity scanning, skill matching, live data from 10+ sources',
-  actions: [scanOpportunities, evaluateOpportunity],
+  description: 'Bounty Hunter capabilities — opportunity scanning, skill matching, application drafting, live data from 10+ sources',
+  actions: [scanOpportunities, evaluateOpportunity, draftApplication],
   providers: [bountyContextProvider],
   evaluators: [],
 };
