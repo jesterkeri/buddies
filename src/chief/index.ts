@@ -2,13 +2,13 @@ import type { Character, IAgentRuntime, ProjectAgent } from '@elizaos/core';
 import { initCharacter } from '../init.ts';
 import chiefPlugin from './plugins/chief/index.ts';
 import { buddiesPlugin, getShouldRespondTemplate } from '../shared/index.ts';
-import { getAgentSecrets, getAgentPlugins } from '../shared/ai-config.ts';
+import { getAgentSecrets } from '../shared/ai-config.ts';
 
 const character: Character = {
   name: 'Chief',
   plugins: [
     '@elizaos/plugin-sql',
-    ...getAgentPlugins('Chief'),
+    '@elizaos/plugin-openai',
     '@elizaos/plugin-bootstrap',
   ],
   secrets: getAgentSecrets('Chief'),

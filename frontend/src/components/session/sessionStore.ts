@@ -1,8 +1,10 @@
 import { useSyncExternalStore } from 'react';
+import { CONFIG_SERVER } from '../../api/config';
 
 export interface SessionState {
   active: boolean;
   startTime: number | null;
+  endedAt: number | null;
   breakStyle: string;
   totalBreaksTaken: number;
   lastBreakAt: number | null;
@@ -23,7 +25,11 @@ const BREAK_INTERVALS: Record<string, { work: number; rest: number }> = {
 function loadState(): SessionState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : defaultState();
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return { ...defaultState(), ...parsed };
+    }
+    return defaultState();
   } catch {
     return defaultState();
   }
@@ -33,6 +39,7 @@ function defaultState(): SessionState {
   return {
     active: false,
     startTime: null,
+    endedAt: null,
     breakStyle: 'pomodoro',
     totalBreaksTaken: 0,
     lastBreakAt: null,
@@ -43,6 +50,7 @@ function saveState(s: SessionState): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
 }
 
+// ── Listeners (for useSyncExternalStore) ──
 type Listener = () => void;
 const listeners = new Set<Listener>();
 let state = loadState();
@@ -51,6 +59,31 @@ function notify(): void {
   saveState(state);
   listeners.forEach((l) => l());
 }
+
+// ── Lifecycle callbacks (for hooks.ts to register without circular imports) ──
+type LifecycleCallback = (event: 'start' | 'end') => void;
+const lifecycleCallbacks = new Set<LifecycleCallback>();
+
+export function registerSessionLifecycle(cb: LifecycleCallback): () => void {
+  lifecycleCallbacks.add(cb);
+  return () => lifecycleCallbacks.delete(cb);
+}
+
+function fireLifecycle(event: 'start' | 'end'): void {
+  lifecycleCallbacks.forEach((cb) => {
+    try { cb(event); } catch {}
+  });
+}
+
+function notifyBackend(event: 'start' | 'end'): void {
+  fetch(`${CONFIG_SERVER}/session-event`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event, timestamp: Date.now() }),
+  }).catch(() => {});
+}
+
+// ── Public API ──
 
 export function getSessionState(): SessionState {
   return state;
@@ -62,7 +95,6 @@ export function subscribe(listener: Listener): () => void {
 }
 
 export function startSession(breakStyle?: string): void {
-  // Load break style from onboarding preferences
   if (!breakStyle) {
     try {
       const onboarding = JSON.parse(localStorage.getItem('buddies-onboarding') || '{}');
@@ -74,16 +106,25 @@ export function startSession(breakStyle?: string): void {
   state = {
     active: true,
     startTime: Date.now(),
+    endedAt: null,
     breakStyle,
     totalBreaksTaken: 0,
     lastBreakAt: null,
   };
   notify();
+  fireLifecycle('start');
+  notifyBackend('start');
 }
 
 export function endSession(): void {
-  state = defaultState();
+  state = {
+    ...state,
+    active: false,
+    endedAt: Date.now(),
+  };
   notify();
+  fireLifecycle('end');
+  notifyBackend('end');
 }
 
 export function takeBreak(): void {

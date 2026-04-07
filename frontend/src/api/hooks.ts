@@ -15,6 +15,7 @@ import {
   getAgentStates,
 } from './client';
 import { getUserEntityId, getAgentColor, type AgentInfo, type ChatMessage, type AgentState } from '../types';
+import { registerSessionLifecycle } from '../components/session/sessionStore';
 
 // ── Agents ──
 
@@ -69,43 +70,176 @@ export function useTeamSession() {
   });
 }
 
-// ── All messages (unified across sessions) ──
+// ── Session-based chat history ──
 
-// Persist messages to localStorage so they survive page refresh
-const MESSAGES_KEY = 'buddies-chat-messages';
+const SESSIONS_INDEX_KEY = 'buddies-sessions';
+const ACTIVE_SESSION_KEY = 'buddies-active-session';
 
-function loadMessages(): ChatMessage[] {
+export interface ChatSession {
+  id: string;
+  startedAt: number;
+  endedAt?: number;
+  messageCount: number;
+  label: string; // e.g. "Session 1 — Apr 7, 09:30"
+}
+
+function generateSessionId(): string {
+  return `session-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function formatSessionLabel(index: number, timestamp: number): string {
+  const d = new Date(timestamp);
+  const month = d.toLocaleString('en', { month: 'short' });
+  const day = d.getDate();
+  const time = d.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return `Session ${index} — ${month} ${day}, ${time}`;
+}
+
+function loadSessionsIndex(): ChatSession[] {
   try {
-    const raw = localStorage.getItem(MESSAGES_KEY);
+    const raw = localStorage.getItem(SESSIONS_INDEX_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
 }
 
-function saveMessages(msgs: ChatMessage[]): void {
-  // Keep last 200 messages to avoid localStorage bloat
-  const trimmed = msgs.slice(-200);
-  localStorage.setItem(MESSAGES_KEY, JSON.stringify(trimmed));
+function saveSessionsIndex(sessions: ChatSession[]): void {
+  localStorage.setItem(SESSIONS_INDEX_KEY, JSON.stringify(sessions));
 }
 
-let allMessages: ChatMessage[] = loadMessages();
+function messagesKeyFor(sessionId: string): string {
+  return `buddies-chat-${sessionId}`;
+}
+
+function loadMessagesFor(sessionId: string): ChatMessage[] {
+  try {
+    const raw = localStorage.getItem(messagesKeyFor(sessionId));
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMessagesFor(sessionId: string, msgs: ChatMessage[]): void {
+  const trimmed = msgs.slice(-200);
+  localStorage.setItem(messagesKeyFor(sessionId), JSON.stringify(trimmed));
+}
+
+// Migrate old flat messages to a session if needed
+function migrateOldMessages(): void {
+  const oldKey = 'buddies-chat-messages';
+  const old = localStorage.getItem(oldKey);
+  if (!old) return;
+  try {
+    const msgs: ChatMessage[] = JSON.parse(old);
+    if (msgs.length > 0) {
+      const ts = msgs[0]?.timestamp || Date.now();
+      const sessions = loadSessionsIndex();
+      const id = generateSessionId();
+      sessions.push({ id, startedAt: ts, messageCount: msgs.length, label: formatSessionLabel(sessions.length + 1, ts) });
+      saveSessionsIndex(sessions);
+      saveMessagesFor(id, msgs);
+    }
+    localStorage.removeItem(oldKey);
+  } catch {
+    localStorage.removeItem(oldKey);
+  }
+}
+
+// Initialize: migrate old data, ensure active session exists
+migrateOldMessages();
+
+let activeSessionId: string = localStorage.getItem(ACTIVE_SESSION_KEY) || '';
+
+// If no active session or it's stale, create a new one
+const existingSessions = loadSessionsIndex();
+if (!activeSessionId || !existingSessions.find((s) => s.id === activeSessionId)) {
+  activeSessionId = generateSessionId();
+  const newSession: ChatSession = {
+    id: activeSessionId,
+    startedAt: Date.now(),
+    messageCount: 0,
+    label: formatSessionLabel(existingSessions.length + 1, Date.now()),
+  };
+  existingSessions.push(newSession);
+  saveSessionsIndex(existingSessions);
+  localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
+}
+
+let allMessages: ChatMessage[] = loadMessagesFor(activeSessionId);
 const seenMessageIds = new Set<string>(allMessages.map((m) => m.id));
 
-function toEpoch(v: any): number {
-  if (!v) return Date.now();
-  if (typeof v === 'number') return v;
-  const ms = new Date(v).getTime();
-  return isNaN(ms) ? Date.now() : ms;
+// ── Wire to sessionStore lifecycle (TopNav START/END buttons) ──
+registerSessionLifecycle((event) => {
+  if (event === 'start') {
+    startNewSession();
+  } else if (event === 'end') {
+    endCurrentSession();
+  }
+});
+
+export function startNewSession(): void {
+  // Save current session's message count
+  const sessions = loadSessionsIndex();
+  const current = sessions.find((s) => s.id === activeSessionId);
+  if (current) current.messageCount = allMessages.length;
+  saveSessionsIndex(sessions);
+
+  // Create new session
+  activeSessionId = generateSessionId();
+  const newSession: ChatSession = {
+    id: activeSessionId,
+    startedAt: Date.now(),
+    messageCount: 0,
+    label: formatSessionLabel(sessions.length + 1, Date.now()),
+  };
+  sessions.push(newSession);
+  saveSessionsIndex(sessions);
+  localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
+
+  // Reset in-memory state
+  allMessages = [];
+  seenMessageIds.clear();
 }
 
-export function useMessages() {
-  const { data: agents } = useAgents();
+export function getSessions(): ChatSession[] {
+  return loadSessionsIndex();
+}
+
+export function getActiveSessionId(): string {
+  return activeSessionId;
+}
+
+export function endCurrentSession(): void {
+  const sessions = loadSessionsIndex();
+  const current = sessions.find((s) => s.id === activeSessionId);
+  if (current) {
+    current.endedAt = Date.now();
+    current.messageCount = allMessages.length;
+    saveSessionsIndex(sessions);
+  }
+}
+
+export function deleteSession(sessionId: string): void {
+  if (sessionId === activeSessionId) return; // can't delete active
+  localStorage.removeItem(messagesKeyFor(sessionId));
+  const sessions = loadSessionsIndex().filter((s) => s.id !== sessionId);
+  saveSessionsIndex(sessions);
+}
+
+export function useMessages(viewingSessionId?: string) {
+  const isViewingPast = viewingSessionId && viewingSessionId !== activeSessionId;
 
   return useQuery<ChatMessage[]>({
-    queryKey: ['allMessages'],
+    queryKey: ['allMessages', viewingSessionId || activeSessionId],
     queryFn: async () => {
-      // Poll autonomous agent-to-agent messages from backend
+      // If viewing a past session, return its messages (read-only, no polling)
+      if (isViewingPast) {
+        return loadMessagesFor(viewingSessionId);
+      }
+
+      // Poll autonomous agent-to-agent messages from backend (active session only)
       try {
         const autoMsgs = await getAutonomousMessages();
 
@@ -113,7 +247,6 @@ export function useMessages() {
           const id = msg.id;
           if (!id || seenMessageIds.has(id)) continue;
 
-          // Add the sending agent's message
           const sendId = `${id}-send`;
           if (!seenMessageIds.has(sendId)) {
             seenMessageIds.add(sendId);
@@ -128,7 +261,6 @@ export function useMessages() {
             });
           }
 
-          // Add the responding agent's message (skip if sent to User — one-way)
           if (msg.response && msg.to !== 'User') {
             const respId = `${id}-resp`;
             if (!seenMessageIds.has(respId)) {
@@ -149,13 +281,21 @@ export function useMessages() {
         }
       } catch {}
 
-      // Sort by timestamp and persist
       allMessages.sort((a, b) => a.timestamp - b.timestamp);
-      saveMessages(allMessages);
+      saveMessagesFor(activeSessionId, allMessages);
+
+      // Update message count in index (only when changed)
+      const sessions = loadSessionsIndex();
+      const current = sessions.find((s) => s.id === activeSessionId);
+      if (current && current.messageCount !== allMessages.length) {
+        current.messageCount = allMessages.length;
+        saveSessionsIndex(sessions);
+      }
+
       return allMessages;
     },
     staleTime: 3_000,
-    refetchInterval: 5_000,
+    refetchInterval: isViewingPast ? false : 5_000, // Don't poll when viewing history
   });
 }
 
@@ -181,17 +321,23 @@ export function useSendMessage() {
       };
       seenMessageIds.add(userMsg.id);
       allMessages = [...allMessages, userMsg];
-      saveMessages(allMessages);
+      saveMessagesFor(activeSessionId, allMessages);
       queryClient.setQueryData<ChatMessage[]>(['allMessages'], allMessages);
 
       // Find which agent to talk to
       const targetAgent = findTargetAgent(content, agents);
 
-      // Check if agent is connected (has a provider configured)
-      const settings = JSON.parse(localStorage.getItem('buddies-settings') || '{}');
-      const perAgent = settings?.aiConfig?.perAgent || {};
-      const agentConfig = perAgent[targetAgent.name];
-      const isDisconnected = !agentConfig?.provider || agentConfig.provider === 'none' || agentConfig.provider === '';
+      // Check if agent is connected — query backend config server (source of truth)
+      let isDisconnected = false;
+      try {
+        const configRes = await fetch(`${window.location.protocol}//${window.location.hostname}:3001/config`);
+        const configData = await configRes.json();
+        const cfg = configData?.data;
+        isDisconnected = !cfg?.defaultApiKey && !cfg?.defaultProvider;
+      } catch {
+        // Config server unreachable — allow send attempt, backend will handle errors
+        isDisconnected = false;
+      }
 
       if (isDisconnected) {
         // Add error message to chat
@@ -230,7 +376,7 @@ export function useSendMessage() {
         };
         seenMessageIds.add(responseMsg.id);
         allMessages = [...allMessages, responseMsg];
-        saveMessages(allMessages);
+        saveMessagesFor(activeSessionId, allMessages);
         queryClient.setQueryData<ChatMessage[]>(['allMessages'], allMessages);
 
         // Log to Intel feed

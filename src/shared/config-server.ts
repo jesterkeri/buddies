@@ -2,14 +2,51 @@ import { createServer } from 'http';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { logger } from '@elizaos/core';
-import { loadAiConfig, saveAiConfig, invalidateAiConfigCache } from './ai-config.ts';
+import { loadAiConfig, saveAiConfig, invalidateAiConfigCache, type AiConfigState } from './ai-config.ts';
 
 import { DATA_DIR } from './constants.ts';
 
 const CONFIG_PORT = 3001;
+
+// Provider name → OpenAI-compatible base URL
+const PROVIDER_URLS: Record<string, string> = {
+  openai: 'https://api.openai.com/v1',
+  groq: 'https://api.groq.com/openai/v1',
+  openrouter: 'https://openrouter.ai/api/v1',
+  deepseek: 'https://api.deepseek.com/v1',
+  xai: 'https://api.x.ai/v1',
+  anthropic: 'https://api.anthropic.com/v1',
+  google: 'https://generativelanguage.googleapis.com/v1',
+  nosana: 'https://3gsrmj6gchzyws9bnc835apd4fh6t5tyeppmbxmzrzhn.node.k8s.prd.nos.ci/v1',
+};
+
+/**
+ * Inject AI config into process.env so ElizaOS picks it up at runtime.
+ * This is critical for Docker — agents boot before any config exists,
+ * and ElizaOS reads secrets from process.env as a fallback.
+ */
+function applyConfigToEnv(config: AiConfigState): void {
+  const provider = config.defaultProvider || '';
+  const apiKey = config.defaultApiKey || '';
+  const model = config.defaultModel || '';
+  const apiUrl = config.defaultApiUrl || PROVIDER_URLS[provider] || '';
+
+  if (apiKey && provider && provider !== 'ollama' && provider !== 'none') {
+    process.env.OPENAI_API_KEY = apiKey;
+    process.env.OPENAI_BASE_URL = apiUrl;
+    process.env.SMALL_OPENAI_MODEL = model;
+    process.env.LARGE_OPENAI_MODEL = model;
+    process.env.SMALL_MODEL = model;
+    process.env.LARGE_MODEL = model;
+    // Disable Ollama so ElizaOS doesn't try it
+    process.env.OLLAMA_API_ENDPOINT = 'disabled';
+    logger.info(`[BUDDIES] Applied ${provider} config to process.env (model: ${model})`);
+  }
+}
 const SESSION_PATH = join(DATA_DIR, '.buddies-session-config.json');
 const TASKS_PATH = join(DATA_DIR, '.buddies-tasks.json');
 const ONBOARDING_PATH = join(DATA_DIR, '.buddies-onboarding.json');
+const SESSION_EVENT_PATH = join(DATA_DIR, '.buddies-session-event.json');
 let started = false;
 
 function loadSession(): any {
@@ -87,6 +124,7 @@ export function startConfigServer(): void {
           const config = JSON.parse(body);
           saveAiConfig(config);
           invalidateAiConfigCache();
+          applyConfigToEnv(config);
           res.writeHead(200);
           res.end(JSON.stringify({ success: true, message: 'Config saved.' }));
           logger.info('[BUDDIES] AI config saved via config server');
@@ -229,9 +267,64 @@ export function startConfigServer(): void {
       return;
     }
 
+    // ── Session Events (frontend notifies backend of START/END) ──
+    if (req.method === 'POST' && req.url === '/session-event') {
+      let body = '';
+      req.on('data', (chunk) => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          const event = data.event;
+          if (event !== 'start' && event !== 'end') {
+            res.writeHead(400);
+            res.end(JSON.stringify({ success: false, error: 'Invalid event type' }));
+            return;
+          }
+          const timestamp = data.timestamp || Date.now();
+          const state = {
+            workSessionActive: event === 'start',
+            workSessionStartedAt: event === 'start' ? timestamp : undefined,
+            workSessionEndedAt: event === 'end' ? timestamp : undefined,
+            lastEvent: event,
+            lastEventAt: timestamp,
+          };
+          writeFileSync(SESSION_EVENT_PATH, JSON.stringify(state, null, 2));
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true }));
+          logger.info(`[BUDDIES] Session event: ${event}`);
+        } catch {
+          res.writeHead(400);
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+
+    if (req.method === 'GET' && req.url === '/session-event') {
+      try {
+        if (existsSync(SESSION_EVENT_PATH)) {
+          res.writeHead(200);
+          res.end(readFileSync(SESSION_EVENT_PATH, 'utf-8'));
+        } else {
+          res.writeHead(200);
+          res.end(JSON.stringify({ workSessionActive: false }));
+        }
+      } catch {
+        res.writeHead(200);
+        res.end(JSON.stringify({ workSessionActive: false }));
+      }
+      return;
+    }
+
     res.writeHead(404);
     res.end(JSON.stringify({ error: 'Not found' }));
   });
+
+  // Apply any existing config from disk (e.g., after container restart with persisted volume)
+  const existingConfig = loadAiConfig();
+  if (existingConfig.defaultApiKey) {
+    applyConfigToEnv(existingConfig);
+  }
 
   server.listen(CONFIG_PORT, () => {
     logger.info(`[BUDDIES] Config server running on port ${CONFIG_PORT}`);

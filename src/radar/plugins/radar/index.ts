@@ -96,7 +96,7 @@ const checkDependencies: Action = {
 
         let line = `- **${pkg}** ${currentVer} → v${latest}`;
         if (isBreaking) {
-          line += ` ⚠️ BREAKING (major bump ${currentMajor} → ${latestMajor})`;
+          line += ` [BREAKING] (major bump ${currentMajor} → ${latestMajor})`;
           breakingChanges.push(pkg);
         }
         depInfo += line + '\n';
@@ -113,7 +113,7 @@ const checkDependencies: Action = {
     }
 
     const response = depInfo
-      ? `Dependency scan (${packagesToCheck.length} packages):\n\n${depInfo}${breakingChanges.length > 0 ? `\n⚠️ **${breakingChanges.length} breaking changes detected!**${migrationInfo}` : '\n✅ No breaking changes detected.'}`
+      ? `Dependency scan (${packagesToCheck.length} packages):\n\n${depInfo}${breakingChanges.length > 0 ? `\n[ALERT] **${breakingChanges.length} breaking changes detected!**${migrationInfo}` : '\nNo breaking changes detected.'}`
       : `Connect a GitHub repo in the Session tab so I can read your package.json, or list specific packages to check.`;
 
     if (callback) {

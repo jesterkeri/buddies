@@ -1,6 +1,8 @@
 import type { Plugin, Action } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
 import { fireTrigger } from '../../../shared/triggers.ts';
+import { sendAgentMessage, postToUser } from '../../../shared/agent-messenger.ts';
+import { isAgentDisconnected } from '../../../shared/ai-config.ts';
 import { projectContextProvider } from './providers/project-context.ts';
 import { generateStandup } from './actions/generate-standup.ts';
 import { draftPR } from './actions/draft-pr.ts';
@@ -46,20 +48,29 @@ const callMeeting: Action = {
   handler: async (runtime, message, state, options, callback) => {
     agentStateManager.setState('Chief', AgentStatus.MEETING, 'Team meeting');
 
-    const allStates = agentStateManager.getAllStates();
-    const statusList = allStates.map((s) =>
-      `- ${s.agentName}: ${s.status}${s.currentTask ? ` — ${s.currentTask}` : ''}`
-    ).join('\n');
+    // Actually ask each connected agent for a status update
+    const agents = ['Hawk', 'Radar', 'Bounty Hunter', 'Buddy'];
+    const responses: string[] = [];
+
+    for (const agent of agents) {
+      if (isAgentDisconnected(agent)) continue;
+      const result = await sendAgentMessage('Chief', `Team meeting. ${agent}, quick status — what are you working on and any blockers?`, agent);
+      if (result.sent && result.response) {
+        responses.push(`**${agent}:** ${result.response}`);
+      }
+    }
+
+    const summary = responses.length > 0
+      ? `Team meeting — ${responses.length} agent(s) reporting:\n\n${responses.join('\n\n')}`
+      : `Team meeting called but no agents responded. Make sure agents are connected in the Connect tab.`;
 
     if (callback) {
-      await callback({
-        text: `Team meeting called.\n\nCurrent agent status:\n${statusList}\n\nAll agents, report your progress and blockers.`,
-        actions: ['CALL_MEETING'],
-      });
+      await callback({ text: summary, actions: ['CALL_MEETING'] });
     }
 
     fireTrigger('Chief', 'CALL_MEETING');
-    return { text: 'Meeting called', success: true };
+    agentStateManager.setState('Chief', AgentStatus.IDLE);
+    return { text: 'Meeting complete', success: true };
   },
   examples: [
     [

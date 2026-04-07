@@ -69,7 +69,8 @@ export async function getRepoContext(): Promise<string | null> {
     // README (truncated)
     const readme = await ghFetchRaw(`/repos/${owner}/${repo}/readme`, session.githubToken);
     if (readme) {
-      sections.push(`## README\n${readme.slice(0, 2000)}`);
+      const truncated = readme.length > 2000 ? `\n\n[...truncated, ${readme.length - 2000} chars remaining]` : '';
+      sections.push(`## README\n${readme.slice(0, 2000)}${truncated}`);
     }
 
     // Open issues (top 5)
@@ -183,7 +184,8 @@ export async function fetchCommitDiff(sha: string): Promise<string> {
     });
     if (!res.ok) return '';
     const diff = await res.text();
-    return diff.slice(0, 5000); // Truncate for LLM context
+    const truncMarker = diff.length > 5000 ? `\n\n[...truncated, ${diff.length - 5000} chars remaining]` : '';
+    return diff.slice(0, 5000) + truncMarker;
   } catch {
     return '';
   }

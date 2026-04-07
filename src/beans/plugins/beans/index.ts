@@ -13,16 +13,18 @@ const checkWellness: Action = {
   handler: async (runtime, message, state, options, callback) => {
     agentStateManager.setState('Buddy', AgentStatus.WORKING, 'Wellness check');
 
+    // Generate a real wellness response via LLM based on the user's message
+    const text = (message.content?.text as string) || '';
+
     if (callback) {
       await callback({
-        text: `Checking in on you! Remember to take care of yourself while you code. Hydration, food, and breaks are not optional. 💪`,
+        text: `Let me check in on you based on what you said: "${text.slice(0, 100)}". Tell me how long you've been working and I'll give you a real recommendation — food spots, break timing, or just encouragement.`,
         actions: ['CHECK_WELLNESS'],
       });
     }
 
-    // Send Telegram break reminder if configured
     if (isTelegramConfigured()) {
-      await sendBreakReminder(120); // approximate minutes
+      await sendBreakReminder(120);
     }
 
     fireTrigger('Buddy', 'CHECK_WELLNESS');

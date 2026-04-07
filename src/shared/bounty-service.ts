@@ -34,7 +34,8 @@ async function fetchDevpost(): Promise<BountyListing[]> {
       tags: h.themes?.map((t: any) => t.name) || [],
       description: h.tagline,
     }));
-  } catch {
+  } catch (err) {
+    logger.error(`[BOUNTY] Source fetch failed: ${err}`);
     return [];
   }
 }
@@ -52,7 +53,8 @@ async function fetchDevfolio(): Promise<BountyListing[]> {
       tags: h.themes || [],
       description: h.tagline,
     }));
-  } catch {
+  } catch (err) {
+    logger.error(`[BOUNTY] Source fetch failed: ${err}`);
     return [];
   }
 }
@@ -70,7 +72,8 @@ async function fetchSuperteamEarn(): Promise<BountyListing[]> {
       tags: b.skills?.map((s: any) => s.skills) || [],
       description: b.description?.slice(0, 150),
     }));
-  } catch {
+  } catch (err) {
+    logger.error(`[BOUNTY] Source fetch failed: ${err}`);
     return [];
   }
 }
@@ -86,7 +89,8 @@ async function fetchGitHubBounties(): Promise<BountyListing[]> {
       tags: i.labels?.map((l: any) => l.name) || [],
       description: i.body?.slice(0, 150),
     }));
-  } catch {
+  } catch (err) {
+    logger.error(`[BOUNTY] Source fetch failed: ${err}`);
     return [];
   }
 }

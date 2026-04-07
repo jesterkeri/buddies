@@ -2,13 +2,13 @@ import type { Character, IAgentRuntime, ProjectAgent } from '@elizaos/core';
 import { initCharacter } from '../init.ts';
 import hawkPlugin from './plugins/hawk/index.ts';
 import { buddiesPlugin, getShouldRespondTemplate } from '../shared/index.ts';
-import { getAgentSecrets, getAgentPlugins } from '../shared/ai-config.ts';
+import { getAgentSecrets } from '../shared/ai-config.ts';
 
 const character: Character = {
   name: 'Hawk',
   plugins: [
     '@elizaos/plugin-sql',
-    ...getAgentPlugins('Hawk'),
+    '@elizaos/plugin-openai',
     '@elizaos/plugin-bootstrap',
   ],
   secrets: getAgentSecrets('Hawk'),

@@ -250,7 +250,7 @@ export default function Sidebar() {
       <div className="px-3 py-2 border-t-2 space-y-1" style={{ borderColor: 'rgba(242,244,243,0.1)' }}>
         <div className="flex items-center justify-between">
           <span className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.25)' }}>RUNTIME</span>
-          <span className="text-[8px] font-mono" style={{ color: '#22c55e' }}>ELIZAOS v1.7.2</span>
+          <span className="text-[8px] font-mono" style={{ color: '#22c55e' }}>ELIZAOS</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.25)' }}>AGENTS</span>

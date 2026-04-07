@@ -29,7 +29,7 @@ export const MEETING_DURATION_MS = 30_000; // 30s meeting duration
 
 // Agent messaging
 export const AGENT_COOLDOWN_MS = 60_000; // 60s between autonomous messages per agent
-export const AUTONOMOUS_STARTUP_DELAY_MS = 15_000; // 15s after first agent init
+export const AUTONOMOUS_STARTUP_DELAY_MS = 30_000; // 30s after first agent init — agents need time to register
 
 // Context limits
 export const RECENT_MEMORIES_LIMIT = 10;

@@ -32,26 +32,38 @@ export interface AgentMessage {
 
 // ── Agent ID lookup ──
 
-async function getAgentId(agentName: string): Promise<string | null> {
-  const cached = agentIdCache.get(agentName);
-  if (cached) return cached;
-
+async function refreshAgentIds(): Promise<void> {
   try {
     const res = await apiCall('/api/agents');
     const agents = res?.data?.agents || res?.agents || res?.data || [];
-    if (!Array.isArray(agents)) return null;
+    if (!Array.isArray(agents)) return;
 
     for (const agent of agents) {
       const id = agent.id || agent.agentId;
       const name = agent.name || agent.character?.name;
       if (id && name) agentIdCache.set(name, id);
     }
-
-    return agentIdCache.get(agentName) || null;
   } catch (err) {
-    logger.error(`[MESSENGER] Failed to look up agent ID for ${agentName}: ${err}`);
-    return null;
+    logger.error(`[MESSENGER] Failed to refresh agent IDs: ${err}`);
   }
+}
+
+async function getAgentId(agentName: string, retries = 3): Promise<string | null> {
+  const cached = agentIdCache.get(agentName);
+  if (cached) return cached;
+
+  for (let i = 0; i < retries; i++) {
+    await refreshAgentIds();
+    const id = agentIdCache.get(agentName);
+    if (id) return id;
+
+    if (i < retries - 1) {
+      logger.info(`[MESSENGER] Agent "${agentName}" not registered yet, retrying (${i + 1}/${retries})...`);
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+  }
+
+  return null;
 }
 
 // ── Session management ──
@@ -134,8 +146,9 @@ export async function sendAgentMessage(
     return { sent: false };
   }
 
-  // Per-agent cooldown
-  const lastTime = lastMessageTime.get(fromAgent) || 0;
+  // Per-pair cooldown (allows Chief to talk to Hawk, Radar, Buddy in sequence)
+  const pairKey = `${fromAgent}:${targetName}`;
+  const lastTime = lastMessageTime.get(pairKey) || 0;
   const now = Date.now();
   if (now - lastTime < AGENT_COOLDOWN_MS) {
     logger.info(`[MESSENGER] Skipping ${fromAgent} → ${targetName} — cooldown active`);
@@ -164,7 +177,7 @@ export async function sendAgentMessage(
       body: JSON.stringify({ content: text, transport: 'http' }),
     });
 
-    lastMessageTime.set(fromAgent, now);
+    lastMessageTime.set(pairKey, now);
 
     const agentResponse = res?.agentResponse;
     const responseText = agentResponse?.text || '';
