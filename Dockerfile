@@ -30,10 +30,15 @@ RUN cp -r frontend/dist/* node_modules/@elizaos/server/dist/client/
 
 RUN mkdir -p /app/data
 
-# ElizaOS on 3000, config server on 3001
-EXPOSE 3000 3001
+# ElizaOS on 3000. Config server (port 3001) is bound to 127.0.0.1 by default
+# and should NOT be exposed publicly — it has no auth and stores API keys.
+# To expose it (e.g., Nosana with reverse-proxy + auth), set
+# BUDDIES_CONFIG_BIND_HOST=0.0.0.0 and add `EXPOSE 3001` here.
+EXPOSE 3000
 
 ENV NODE_ENV=production
 ENV SERVER_PORT=3000
 
-CMD ["elizaos", "start"]
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+CMD ["/app/start.sh"]

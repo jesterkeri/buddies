@@ -11,3 +11,6 @@ bun.lockb
 bun.lock
 frontend/dist/
 frontend/node_modules/
+
+# Runtime state files written to cwd in dev — contain API keys, GitHub tokens, session data
+.buddies-*.json

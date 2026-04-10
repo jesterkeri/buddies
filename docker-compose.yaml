@@ -6,7 +6,10 @@ services:
     container_name: buddies
     ports:
       - "3000:3000"
-      - "3001:3001"
+      # Port 3001 (config server) is intentionally NOT mapped — it has no auth
+      # and stores API keys. Frontend talks to it via the same-host loopback
+      # inside the container. For Nosana / multi-host setups, set
+      # BUDDIES_CONFIG_BIND_HOST=0.0.0.0 and add a reverse proxy with auth.
     env_file:
       - .env
     volumes:
