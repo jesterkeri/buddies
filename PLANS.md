@@ -152,6 +152,65 @@
 - [x] 98i. Rate limiting — AGENT_COOLDOWN_MS (60s), skip disconnected agents, skip busy agents
 - [x] 98j. Frontend polls /autonomous-messages endpoint, displays agent-to-agent exchanges in chat
 
+## Phase 16C: Streaming + War Room Stabilization (Day 19) ~~DONE~~
+- [x] 98k. Fix HTTP 500 ZodError on Google/Groq replies — patch fetch to redirect /responses → /chat/completions, transform request body, live-rewrite chat.completion.chunk SSE into Responses API events
+- [x] 98l. Drain trailing un-terminated SSE events in TransformStream flush so streams that close mid-event still emit deltas
+- [x] 98m. Per-agent secrets via character.secrets Proxy (src/shared/ai-config.ts) — survives ElizaOS mergeAgentSettings spread by NOT seeding global OPENAI_API_KEY into process.env
+- [x] 98n. WarRoomTimeline panel on COMMS tab — right sidebar shows agent-to-agent exchanges from /autonomous-messages
+- [x] 98o. War room session filter via useSession.startTime, msg.response paired rendering, useMemo on filtered array, replay snapshot so live updates don't make replay chase its tail
+- [x] 98p. Card entrance animation via plain @keyframes warroom-card-in in globals.css (no tailwindcss-animate dependency)
+- [x] 98q. Coalesced /autonomous-messages polling via shared queryClient.fetchQuery cache key — war room and chat feed share one network call most of the time
+
+## Phase 16D: Demo Readiness Cleanup (Day 19)
+- [ ] 98r. **Buddy provider swap** — Groq llama-3.3-70b key is rate-limited every few requests. Replace with new key (user has one incoming) or switch provider in .buddies-ai-config.json
+- [ ] 98s. **Radar provider decision** — currently on local ollama gemma4, works in real frontend context but fragile to thin/empty contexts (returns "[STOP]" on synthetic curl tests). Either keep gemma4 or swap to a fresh Gemini key for reliability
+- [ ] 98t. **Sidebar status drift fix** — settingsStore.loadAiConfigFromBackend() runs once at module init with no polling, so ACTIVE_SQUAD badges show stale state after a config edit until page refresh. Wire to sessionStore notify or poll the config server
+- [ ] 98u. **Frontend bundle sync into ElizaOS server dir** — node_modules/@elizaos/server/dist/client/ is baked at Docker build time and doesn't reflect frontend/dist/. Either add a postbuild script that mirrors frontend/dist/* into the ElizaOS client dir, or fix Dockerfile to do it on container build. Required for Nosana submission, not for local demo (vite at 5173 works for live demo)
+- [ ] 98v. **WebSocket transport bus subscriber bug (post-demo)** — node_modules/@elizaos/server/dist/index.js:28600 defaults bus messages to ChannelType.GROUP, causing shouldRespond LLM eval to fail on plain-text replies. Frontend uses transport: 'http' so this doesn't block the demo, but it's still wrong if anything hits the default transport
+- [ ] 98w. **War room polish backlog (post-demo)** — auto-scroll dep narrowing (currently fires on parent re-renders), tab-aware mount so the war room only renders when COMMS is active, snapshot empty-array edge case on REPLAY click
+
+## Phase 16E: Dashboard Tab Audit & Wiring (Day 19)
+Verify each non-COMMS tab is wired to live data and behaves correctly. Tab IDs in TopNav.tsx: chat → COMMS, office → HQ, tasks → MISSIONS, activity → INTEL, session → GIT SESSION, connect → CONNECT.
+
+### HQ (office / PixelOffice.tsx)
+- [ ] 98x. Verify agent characters sync to live state from /api/buddies/states (WORKING / IDLE / MEETING / REVIEWING) — no stale or stub data
+- [ ] 98y. Verify meeting animation triggers when Chief calls standup — all 5 agents walk to conference table on the GENERATE_STANDUP action
+- [ ] 98z. Verify Buddy walks to break area on Pomodoro break events
+- [ ] 98aa. Click-to-chat: clicking an agent in the office switches activeTab to 'chat' AND focuses that agent in the message input (currently only switches tab)
+- [ ] 98ab. Status labels above characters update with current agent state, typing dots show when agent is generating
+- [ ] 98ac. Verify character positions don't drift off the tilemap on long sessions (BFS pathfinding bounds)
+
+### MISSIONS (tasks / TaskBoard.tsx)
+- [ ] 98ad. Verify Chief's CREATE_TASK / MOVE_TASK / ASSIGN_TASK / DELETE_TASK actions persist to taskStore — currently localStorage-backed, decide if backend persistence is needed
+- [ ] 98ae. Drag-drop between columns (TODO / IN PROGRESS / REVIEW / DONE) works and persists
+- [ ] 98af. Priority sorting (P0/P1/P2/P3) applied within each column (already in TaskBoard.tsx:14-18, verify)
+- [ ] 98ag. Click task → jump to the chat message that created it (Phase 7 task #42, verify still wired after recent hooks.ts changes)
+- [ ] 98ah. + NEW button creates a task with current user as creator and routes it through Chief
+- [ ] 98ai. Verify autonomous trigger chains create tasks (e.g., Hawk flags critical bug → Chief auto-creates P0 task)
+
+### INTEL (activity / ActivityFeed.tsx)
+- [ ] 98aj. Verify activity events fire from real system events: message sent, task created, review completed, opportunity found, break triggered — no stub feed
+- [ ] 98ak. Per-agent filter actually filters the live event stream and persists during the session
+- [ ] 98al. Click an event → jump to the source (chat message, task card, etc.)
+- [ ] 98am. Auto-scroll new events into view, clear filter button works
+- [ ] 98an. Pull from /autonomous-messages too, not just locally pushed events — agents talking to each other should show up in INTEL
+
+### GIT SESSION (session / SessionPage.tsx — sessionProjectStore)
+- [ ] 98ao. PAT input + Connect Repo flow actually hits the GitHub API and pulls metadata, branches, file tree, issues, PRs, README
+- [ ] 98ap. File tree fetches lazily on directory expand via fetchDirectory()
+- [ ] 98aq. Branch switching updates Hawk's code-context provider so reviews target the active branch
+- [ ] 98ar. Issues + PRs lists pull live from the connected repo
+- [ ] 98as. Per-agent READ/WRITE access toggles persist (currently component state only per comment in SessionPage.tsx:15-16)
+- [ ] 98at. Hawk can read repo files via the connected session — verify by asking Hawk to review a file from the connected repo
+- [ ] 98au. Verify token is stored securely (not in localStorage plaintext for the Nosana submission)
+
+### CONNECT (connect / SettingsPage.tsx)
+- [ ] 98av. Per-agent provider/key/model edits persist to .buddies-ai-config.json via the config server (port 3001)
+- [ ] 98aw. Saving a new key triggers an immediate sidebar refresh OR shows a banner saying "refresh to apply" — currently the sidebar is stuck on cached module-init state
+- [ ] 98ax. Validate the provider key in-form (call provider's models endpoint or echo a test message) before saving
+- [ ] 98ay. NOT CONNECTED state shows the actual reason: missing key vs bad provider vs disconnect=true
+- [ ] 98az. Default provider edit cascades to agents that don't have a per-agent override
+
 ## Phase 17: Nosana Deployment (Day 19)
 - [ ] 99. Build Docker image with all changes
 - [ ] 100. Push to Docker Hub (jesterkeri/buddies)
