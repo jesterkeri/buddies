@@ -8,6 +8,7 @@ import TaskBoard from '../tasks/TaskBoard';
 import ActivityFeed from '../activity/ActivityFeed';
 import SessionPage from '../session/SessionPage';
 import SettingsPage from '../settings/SettingsPage';
+import WarRoomTimeline from '../warroom/WarRoomTimeline';
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabId>('chat');
@@ -23,13 +24,21 @@ export default function Dashboard() {
       <div className="flex-1 flex overflow-hidden p-3 gap-3">
         <Sidebar />
 
-        <main className="flex-1 overflow-hidden">
-          {activeTab === 'chat' && <ChatRoom />}
-          {activeTab === 'office' && <PixelOffice onAgentClick={handleAgentClick} />}
-          {activeTab === 'tasks' && <TaskBoard />}
-          {activeTab === 'activity' && <ActivityFeed />}
-          {activeTab === 'session' && <SessionPage />}
-          {activeTab === 'connect' && <SettingsPage />}
+        <main className="flex-1 overflow-hidden flex gap-3">
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+            {activeTab === 'chat' && <ChatRoom />}
+            {activeTab === 'office' && <PixelOffice onAgentClick={handleAgentClick} />}
+            {activeTab === 'tasks' && <TaskBoard />}
+            {activeTab === 'activity' && <ActivityFeed />}
+            {activeTab === 'session' && <SessionPage />}
+            {activeTab === 'connect' && <SettingsPage />}
+          </div>
+
+          {activeTab === 'chat' && (
+            <aside className="w-80 shrink-0 flex flex-col overflow-hidden">
+              <WarRoomTimeline />
+            </aside>
+          )}
         </main>
       </div>
     </div>

@@ -12,7 +12,7 @@ const tabs: { id: TabId; label: string; enabled: boolean }[] = [
   { id: 'office', label: 'HQ', enabled: true },
   { id: 'tasks', label: 'MISSIONS', enabled: true },
   { id: 'activity', label: 'INTEL', enabled: true },
-  { id: 'session', label: 'SESSION', enabled: true },
+  { id: 'session', label: 'GIT SESSION', enabled: true },
   { id: 'connect', label: 'CONNECT', enabled: true },
 ];
 

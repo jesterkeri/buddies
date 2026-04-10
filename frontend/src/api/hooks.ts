@@ -5,6 +5,7 @@
  * the message goes to that agent's session and the response comes back inline.
  */
 
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { pushEvent } from '../components/activity/activityStore';
 import {
@@ -39,15 +40,25 @@ export function useAgents() {
 // Cache: agentId → sessionId
 const sessionCache = new Map<string, string>();
 
-async function getOrCreateSession(agentId: string): Promise<string> {
-  const cached = sessionCache.get(agentId);
-  if (cached) return cached;
+async function getOrCreateSession(agentId: string, forceNew = false): Promise<string> {
+  if (!forceNew) {
+    const cached = sessionCache.get(agentId);
+    if (cached) return cached;
+  } else {
+    sessionCache.delete(agentId);
+  }
 
   const userId = getUserEntityId();
   const res = await createAgentSession(agentId, userId);
   const sessionId = res?.sessionId || res?.data?.sessionId;
   if (sessionId) sessionCache.set(agentId, sessionId);
   return sessionId;
+}
+
+// Detect server-side "session not found" errors so we can recover
+function isStaleSessionError(err: any): boolean {
+  const msg = (err?.serverError || err?.message || '').toLowerCase();
+  return msg.includes('session') && (msg.includes('not found') || msg.includes('expired') || msg.includes('invalid'));
 }
 
 // ── Team session (for initial load / default agent) ──
@@ -230,6 +241,7 @@ export function deleteSession(sessionId: string): void {
 
 export function useMessages(viewingSessionId?: string) {
   const isViewingPast = viewingSessionId && viewingSessionId !== activeSessionId;
+  const queryClient = useQueryClient();
 
   return useQuery<ChatMessage[]>({
     queryKey: ['allMessages', viewingSessionId || activeSessionId],
@@ -239,41 +251,68 @@ export function useMessages(viewingSessionId?: string) {
         return loadMessagesFor(viewingSessionId);
       }
 
-      // Poll autonomous agent-to-agent messages from backend (active session only)
+      // Poll autonomous messages from backend — show both agent-to-user AND agent-to-agent messages
+      // Agent-to-agent messages (standups, coordination) are the core demo moment
+      // Filter by session start time so old messages don't bleed into new sessions
       try {
-        const autoMsgs = await getAutonomousMessages();
+        const autoMsgs = await queryClient.fetchQuery({
+          queryKey: ['autonomous-messages'],
+          queryFn: getAutonomousMessages,
+          staleTime: 2000,
+        });
+        const currentSession = loadSessionsIndex().find((s) => s.id === activeSessionId);
+        const sessionStart = currentSession?.startedAt || 0;
 
         for (const msg of autoMsgs) {
           const id = msg.id;
           if (!id || seenMessageIds.has(id)) continue;
+          // Skip messages from before this session started
+          if (msg.timestamp < sessionStart) { seenMessageIds.add(id); continue; }
 
-          const sendId = `${id}-send`;
-          if (!seenMessageIds.has(sendId)) {
-            seenMessageIds.add(sendId);
-            allMessages.push({
-              id: sendId,
-              authorId: msg.from,
-              authorName: msg.from,
-              isAgent: true,
-              content: msg.content,
-              timestamp: msg.timestamp,
-              agentColor: getAgentColor(msg.from),
-            });
-          }
-
-          if (msg.response && msg.to !== 'User') {
-            const respId = `${id}-resp`;
-            if (!seenMessageIds.has(respId)) {
-              seenMessageIds.add(respId);
+          // Show agent-to-user messages (postToUser)
+          if (msg.to === 'User') {
+            const sendId = `${id}-send`;
+            if (!seenMessageIds.has(sendId)) {
+              seenMessageIds.add(sendId);
               allMessages.push({
-                id: respId,
-                authorId: msg.to,
-                authorName: msg.to,
+                id: sendId,
+                authorId: msg.from,
+                authorName: msg.from,
                 isAgent: true,
-                content: msg.response,
-                timestamp: msg.timestamp + 1,
-                agentColor: getAgentColor(msg.to),
+                content: msg.content,
+                timestamp: msg.timestamp,
+                agentColor: getAgentColor(msg.from),
               });
+            }
+          } else {
+            // Agent-to-agent message — show the exchange in chat
+            // Format: "From → To: message" with the response below
+            const a2aId = `${id}-a2a`;
+            if (!seenMessageIds.has(a2aId)) {
+              seenMessageIds.add(a2aId);
+              allMessages.push({
+                id: a2aId,
+                authorId: msg.from,
+                authorName: msg.from,
+                isAgent: true,
+                content: `*(to ${msg.to})* ${msg.content}`,
+                timestamp: msg.timestamp,
+                agentColor: getAgentColor(msg.from),
+              });
+              // Show the target agent's response if available
+              if (msg.response) {
+                const respId = `${id}-a2a-resp`;
+                seenMessageIds.add(respId);
+                allMessages.push({
+                  id: respId,
+                  authorId: msg.to,
+                  authorName: msg.to,
+                  isAgent: true,
+                  content: msg.response,
+                  timestamp: msg.timestamp + 1, // +1ms to sort after the prompt
+                  agentColor: getAgentColor(msg.to),
+                });
+              }
             }
           }
 
@@ -301,6 +340,23 @@ export function useMessages(viewingSessionId?: string) {
 
 // ── Send message ──
 
+// Typing state — shared so ChatRoom can read it
+let typingAgent: string | null = null;
+const typingListeners = new Set<() => void>();
+function setTypingAgent(name: string | null) {
+  typingAgent = name;
+  typingListeners.forEach((l) => l());
+}
+export function useTypingAgent(): string | null {
+  const [, rerender] = useState(0);
+  useEffect(() => {
+    const listener = () => rerender((n) => n + 1);
+    typingListeners.add(listener);
+    return () => { typingListeners.delete(listener); };
+  }, []);
+  return typingAgent;
+}
+
 export function useSendMessage() {
   const queryClient = useQueryClient();
   const { data: agents } = useAgents();
@@ -322,68 +378,102 @@ export function useSendMessage() {
       seenMessageIds.add(userMsg.id);
       allMessages = [...allMessages, userMsg];
       saveMessagesFor(activeSessionId, allMessages);
-      queryClient.setQueryData<ChatMessage[]>(['allMessages'], allMessages);
+      queryClient.setQueryData<ChatMessage[]>(['allMessages', activeSessionId], allMessages);
 
       // Find which agent to talk to
       const targetAgent = findTargetAgent(content, agents);
 
-      // Check if agent is connected — query backend config server (source of truth)
-      let isDisconnected = false;
-      try {
-        const configRes = await fetch(`${window.location.protocol}//${window.location.hostname}:3001/config`);
-        const configData = await configRes.json();
-        const cfg = configData?.data;
-        isDisconnected = !cfg?.defaultApiKey && !cfg?.defaultProvider;
-      } catch {
-        // Config server unreachable — allow send attempt, backend will handle errors
-        isDisconnected = false;
-      }
+      // Show typing indicator
+      setTypingAgent(targetAgent.name);
 
-      if (isDisconnected) {
-        // Add error message to chat
+      try {
+        // Get or create session for this agent
+        let sessionId = await getOrCreateSession(targetAgent.id);
+        if (!sessionId) throw new Error('Failed to create session');
+
+        // Send and get response (HTTP transport — synchronous).
+        // If the cached session is stale (server restarted), retry once
+        // with a fresh session.
+        let data;
+        try {
+          data = await sendMessage(sessionId, content);
+        } catch (sendErr: any) {
+          if (isStaleSessionError(sendErr)) {
+            sessionId = await getOrCreateSession(targetAgent.id, true);
+            if (!sessionId) throw sendErr;
+            data = await sendMessage(sessionId, content);
+          } else {
+            throw sendErr;
+          }
+        }
+
+        // Extract agent response
+        const agentResponse = data?.agentResponse;
+        if (agentResponse && agentResponse.text) {
+          const responseMsg: ChatMessage = {
+            id: agentResponse.responseId || `agent-${Date.now()}`,
+            authorId: targetAgent.id,
+            authorName: targetAgent.name,
+            isAgent: true,
+            content: agentResponse.text,
+            timestamp: Date.now(),
+            agentColor: targetAgent.color,
+          };
+          seenMessageIds.add(responseMsg.id);
+          allMessages = [...allMessages, responseMsg];
+          saveMessagesFor(activeSessionId, allMessages);
+          queryClient.setQueryData<ChatMessage[]>(['allMessages', activeSessionId], allMessages);
+
+          // Log to Intel feed
+          pushEvent('message', targetAgent.name, agentResponse.text.slice(0, 100));
+        } else {
+          // Agent didn't respond — add error message
+          const errMsg: ChatMessage = {
+            id: `err-${Date.now()}`,
+            authorId: targetAgent.id,
+            authorName: targetAgent.name,
+            isAgent: true,
+            content: `Cannot reach ${targetAgent.name}. Check API key in Connect tab.`,
+            timestamp: Date.now(),
+            agentColor: targetAgent.color,
+          };
+          seenMessageIds.add(errMsg.id);
+          allMessages = [...allMessages, errMsg];
+          saveMessagesFor(activeSessionId, allMessages);
+          queryClient.setQueryData<ChatMessage[]>(['allMessages', activeSessionId], allMessages);
+        }
+
+        return data;
+      } catch (err: any) {
+        // Show the real error message from the server
+        const serverMsg = err?.serverError || err?.message || '';
+        let displayMsg: string;
+        if (serverMsg.includes('rate') || serverMsg.includes('Limit') || serverMsg.includes('TPM') || serverMsg.includes('too large')) {
+          displayMsg = `${targetAgent.name} hit a rate limit. Try again in a moment or use a shorter message.`;
+        } else if (serverMsg.includes('Unauthorized') || serverMsg.includes('API key')) {
+          displayMsg = `${targetAgent.name} has an invalid API key. Check the Connect tab.`;
+        } else if (serverMsg.includes('Not Found') || serverMsg.includes('404')) {
+          displayMsg = `${targetAgent.name} could not reach the AI provider. Check the model name and provider settings.`;
+        } else {
+          displayMsg = `Cannot reach ${targetAgent.name}. ${serverMsg || 'The agent may be offline or misconfigured.'}`;
+        }
         const errMsg: ChatMessage = {
           id: `err-${Date.now()}`,
           authorId: targetAgent.id,
           authorName: targetAgent.name,
           isAgent: true,
-          content: `${targetAgent.name} is not connected. Go to the Connect tab to add an API key for this agent.`,
+          content: displayMsg,
           timestamp: Date.now(),
           agentColor: targetAgent.color,
         };
+        seenMessageIds.add(errMsg.id);
         allMessages = [...allMessages, errMsg];
-        queryClient.setQueryData<ChatMessage[]>(['allMessages'], allMessages);
-        return { success: false, error: 'Agent not connected' };
-      }
-
-      // Get or create session for this agent
-      const sessionId = await getOrCreateSession(targetAgent.id);
-      if (!sessionId) throw new Error('Failed to create session');
-
-      // Send and get response (HTTP transport — synchronous)
-      const data = await sendMessage(sessionId, content);
-
-      // Extract agent response
-      const agentResponse = data?.agentResponse;
-      if (agentResponse && agentResponse.text) {
-        const responseMsg: ChatMessage = {
-          id: agentResponse.responseId || `agent-${Date.now()}`,
-          authorId: targetAgent.id,
-          authorName: targetAgent.name,
-          isAgent: true,
-          content: agentResponse.text,
-          timestamp: Date.now(),
-          agentColor: targetAgent.color,
-        };
-        seenMessageIds.add(responseMsg.id);
-        allMessages = [...allMessages, responseMsg];
         saveMessagesFor(activeSessionId, allMessages);
-        queryClient.setQueryData<ChatMessage[]>(['allMessages'], allMessages);
-
-        // Log to Intel feed
-        pushEvent('message', targetAgent.name, agentResponse.text.slice(0, 100));
+        queryClient.setQueryData<ChatMessage[]>(['allMessages', activeSessionId], allMessages);
+        throw err;
+      } finally {
+        setTypingAgent(null);
       }
-
-      return data;
     },
   });
 }
@@ -399,8 +489,8 @@ const AGENT_DOMAINS: Record<string, string[]> = {
 };
 
 function findTargetAgent(content: string, agents: AgentInfo[]): AgentInfo {
-  // Check @mention first
-  const mention = content.match(/@(\w[\w\s]*?)(?=\s|$)/);
+  // Check @mention first (supports multi-word names like "Bounty Hunter")
+  const mention = content.match(/@([\w][\w\s]*[\w])(?=\s|$|[.,!?])/);
   if (mention) {
     const name = mention[1].trim().toLowerCase();
     const found = agents.find((a) => a.name.toLowerCase() === name);

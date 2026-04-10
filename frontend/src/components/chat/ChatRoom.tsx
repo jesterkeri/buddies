@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useTeamSession, useMessages, useSendMessage, useAgents, getSessions, getActiveSessionId, deleteSession } from '../../api/hooks';
+import { useTeamSession, useMessages, useSendMessage, useAgents, useTypingAgent, getSessions, getActiveSessionId, deleteSession } from '../../api/hooks';
 import { useSession } from '../session/sessionStore';
 import type { ChatMessage } from '../../types';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
+import TypingIndicator from './TypingIndicator';
 
 export default function ChatRoom() {
   const [viewingId, setViewingId] = useState<string | undefined>(undefined);
@@ -16,6 +17,7 @@ export default function ChatRoom() {
   const { data: teamSession, isLoading: sessionLoading } = useTeamSession();
   const { data: messages, isLoading: messagesLoading } = useMessages(viewingId);
   const sendMessage = useSendMessage();
+  const typingAgent = useTypingAgent();
 
   const sessions = getSessions();
   const activeId = getActiveSessionId();
@@ -161,6 +163,8 @@ export default function ChatRoom() {
         isLoading={messagesLoading}
         onReply={setReplyTo}
       />
+
+      {typingAgent && <TypingIndicator agentNames={[typingAgent]} />}
 
       {/* Footer: input or read-only state */}
       {isViewingPast ? (

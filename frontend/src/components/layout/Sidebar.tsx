@@ -2,7 +2,17 @@ import { useState, useEffect, useRef } from 'react';
 import { useAgents, useAgentStates } from '../../api/hooks';
 import AgentAvatar from '../shared/AgentAvatar';
 import StatusBadge from '../shared/StatusBadge';
-import { useSession, getNextBreakIn, getBreakInterval, isBreakDue, takeBreak } from '../session/sessionStore';
+import { useSession, getNextBreakIn, getBreakInterval, isBreakDue, takeBreak, setBreakStyle, setCustomDurations, getAvailableBreakStyles } from '../session/sessionStore';
+
+// Human-readable labels for break styles
+const BREAK_STYLE_LABELS: Record<string, string> = {
+  pomodoro: 'pomodoro',
+  'deep-work': 'deep work',
+  '52-17': '52/17',
+  ultradian: 'ultradian',
+  flowtime: 'flowtime',
+  custom: 'custom',
+};
 import { getOnboardingState, updateTeamNames } from '../onboarding/onboardingStore';
 import { useSettings } from '../settings/settingsStore';
 
@@ -79,6 +89,9 @@ export default function Sidebar() {
   const settings = useSettings();
   const [nextBreak, setNextBreak] = useState(0);
   const [breakDue, setBreakDue] = useState(false);
+  const [stylePickerOpen, setStylePickerOpen] = useState(false);
+  const [customWork, setCustomWork] = useState(session.customWorkMin || 30);
+  const [customRest, setCustomRest] = useState(session.customRestMin || 5);
 
   const stateMap = new Map<string, { status: string; currentTask?: string }>();
   states?.forEach((s) => stateMap.set(s.agentName, { status: s.status, currentTask: s.currentTask }));
@@ -101,7 +114,16 @@ export default function Sidebar() {
   };
 
   const breakInterval = getBreakInterval();
-  const activeAgents = agents?.length || 0;
+  // Count only agents with a valid API key or free provider
+  const activeAgents = agents?.filter((agent) => {
+    const agentConfig = settings.aiConfig.perAgent[agent.name];
+    const isDisconnected = agentConfig?.provider === 'none';
+    const provider = agentConfig?.provider || settings.aiConfig.defaultProvider;
+    const FREE_PROVIDERS = ['ollama', 'nosana'];
+    const isFree = FREE_PROVIDERS.includes(provider);
+    const apiKey = agentConfig?.apiKey || settings.aiConfig.defaultApiKey;
+    return !isDisconnected && (isFree || (apiKey && apiKey.length > 5));
+  }).length || 0;
   const workingAgents = states?.filter((s) => s.status !== 'IDLE').length || 0;
 
   return (
@@ -126,15 +148,120 @@ export default function Sidebar() {
 
       {/* Break timer */}
       {session.active && (
-        <div className="px-3 py-2.5 border-b-2" style={{ borderColor: 'rgba(242,244,243,0.1)', backgroundColor: breakDue ? 'rgba(228,25,55,0.15)' : 'rgba(43,182,179,0.08)' }}>
-          <div className="flex items-center justify-between mb-1">
+        <div className="px-3 py-2.5 border-b-2 relative" style={{ borderColor: 'rgba(242,244,243,0.1)', backgroundColor: breakDue ? 'rgba(228,25,55,0.15)' : 'rgba(43,182,179,0.08)' }}>
+          <div className="flex items-center justify-between mb-1.5">
             <span className="text-[9px] font-mono font-bold uppercase" style={{ color: breakDue ? '#E41937' : 'rgba(242,244,243,0.4)' }}>
               {breakDue ? 'BREAK TIME' : 'NEXT BREAK'}
             </span>
-            <span className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.25)' }}>
-              {session.breakStyle}
-            </span>
+            <button
+              onClick={() => setStylePickerOpen((v) => !v)}
+              className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 border-2 transition-all hover:bg-white/10 cursor-pointer flex items-center gap-1"
+              style={{
+                borderColor: '#0A0A0A',
+                backgroundColor: stylePickerOpen ? '#2BB6B3' : '#1a1f2e',
+                color: stylePickerOpen ? '#0A0A0A' : '#2BB6B3',
+                boxShadow: '1px 1px 0px #0A0A0A',
+              }}
+              title="Click to change session type"
+            >
+              {BREAK_STYLE_LABELS[session.breakStyle] || session.breakStyle}
+              <span style={{ fontSize: '9px' }}>▾</span>
+            </button>
           </div>
+          {/* Session type picker dropdown */}
+          {stylePickerOpen && (
+            <div
+              className="absolute right-2 top-9 z-50 border-2"
+              style={{ borderColor: '#0A0A0A', backgroundColor: '#1a1f2e', minWidth: 170, boxShadow: '3px 3px 0px #0A0A0A' }}
+            >
+              {getAvailableBreakStyles().map((style) => {
+                const presets: Record<string, { work: number; rest: number }> = {
+                  pomodoro: { work: 25, rest: 5 },
+                  'deep-work': { work: 90, rest: 15 },
+                  '52-17': { work: 52, rest: 17 },
+                  ultradian: { work: 120, rest: 20 },
+                  flowtime: { work: 45, rest: 10 },
+                  custom: { work: session.customWorkMin || 30, rest: session.customRestMin || 5 },
+                };
+                const interval = presets[style];
+                const isActive = style === session.breakStyle;
+                const isCustom = style === 'custom';
+
+                if (isCustom) {
+                  return (
+                    <div
+                      key={style}
+                      className="block w-full text-left px-3 py-2 font-mono"
+                      style={{
+                        backgroundColor: isActive ? 'rgba(43,182,179,0.2)' : 'transparent',
+                        borderBottom: '1px solid rgba(242,244,243,0.05)',
+                      }}
+                    >
+                      <div className="font-bold uppercase text-[12px] leading-tight mb-1.5" style={{ color: isActive ? '#2BB6B3' : '#F2F4F3' }}>
+                        Custom
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min={1}
+                          max={480}
+                          value={customWork}
+                          onChange={(e) => setCustomWork(parseInt(e.target.value) || 1)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-12 px-1 py-0.5 text-[11px] font-mono font-bold text-center border-2"
+                          style={{ backgroundColor: '#0a0a0a', borderColor: '#0A0A0A', color: '#F2F4F3' }}
+                        />
+                        <span className="text-[10px]" style={{ color: 'rgba(242,244,243,0.5)' }}>m work</span>
+                        <span className="text-[10px]" style={{ color: 'rgba(242,244,243,0.3)' }}>/</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={120}
+                          value={customRest}
+                          onChange={(e) => setCustomRest(parseInt(e.target.value) || 1)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-10 px-1 py-0.5 text-[11px] font-mono font-bold text-center border-2"
+                          style={{ backgroundColor: '#0a0a0a', borderColor: '#0A0A0A', color: '#F2F4F3' }}
+                        />
+                        <span className="text-[10px]" style={{ color: 'rgba(242,244,243,0.5)' }}>m rest</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setCustomDurations(customWork, customRest);
+                          setStylePickerOpen(false);
+                        }}
+                        className="mt-1.5 w-full py-1 text-[10px] font-display uppercase border-2"
+                        style={{ borderColor: '#0A0A0A', backgroundColor: '#2BB6B3', color: '#0A0A0A' }}
+                      >
+                        Set custom
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <button
+                    key={style}
+                    onClick={() => {
+                      setBreakStyle(style);
+                      setStylePickerOpen(false);
+                    }}
+                    className="block w-full text-left px-3 py-2 font-mono hover:bg-white/10 transition-colors"
+                    style={{
+                      backgroundColor: isActive ? 'rgba(43,182,179,0.2)' : 'transparent',
+                      color: isActive ? '#2BB6B3' : '#F2F4F3',
+                      borderBottom: '1px solid rgba(242,244,243,0.05)',
+                    }}
+                  >
+                    <div className="font-bold uppercase text-[12px] leading-tight">{BREAK_STYLE_LABELS[style]}</div>
+                    <div className="text-[12px] font-bold mt-0.5" style={{ color: isActive ? '#2BB6B3' : 'rgba(242,244,243,0.7)' }}>
+                      {interval?.work}m <span style={{ opacity: 0.5 }}>/</span> {interval?.rest}m
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {breakDue ? (
             <div className="flex gap-1.5">
               <button

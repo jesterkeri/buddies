@@ -6,8 +6,8 @@ export default function TypingIndicator({ agentNames }: TypingIndicatorProps) {
   if (!agentNames?.length) return null;
 
   const label = agentNames.length === 1
-    ? `${agentNames[0]} is processing`
-    : `${agentNames.join(', ')} are processing`;
+    ? `${agentNames[0]} is typing...`
+    : `${agentNames.join(', ')} are typing...`;
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">

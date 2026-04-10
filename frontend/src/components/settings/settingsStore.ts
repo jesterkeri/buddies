@@ -104,24 +104,72 @@ function syncAiConfigToBackend(aiConfig: AiConfig): void {
   });
 }
 
-// Load AI config from backend on startup
+// Load AI config from backend on startup — merge with localStorage.
+// IMPORTANT: backend GET /config now redacts apiKey values for security
+// (returns hasApiKey/hasDefaultApiKey booleans instead). The real keys
+// only live in localStorage on the frontend. So this function only:
+//   1. Pushes local config to backend if local has keys but backend doesn't
+//      (cold start: user typed keys before backend was running).
+//   2. Logs a warning if backend reports keys but local has none (cold-load
+//      after browser data clear) — user must re-enter their keys.
 async function loadAiConfigFromBackend(): Promise<void> {
   try {
     const res = await fetch(`${CONFIG_SERVER}/config`);
     if (res.ok) {
       const data = await res.json();
-      if (data.success && data.data && data.data.defaultProvider) {
-        state = { ...state, aiConfig: { ...state.aiConfig, ...data.data } };
+      if (data.success && data.data) {
+        const backend = data.data;
+        const local = state.aiConfig;
+
+        // Use the backend's hasDefaultApiKey/hasApiKey booleans (post-redaction),
+        // falling back to legacy raw apiKey field if booleans are missing.
+        const backendHasKeys =
+          backend.hasDefaultApiKey ||
+          backend.defaultApiKey ||
+          Object.values(backend.perAgent || {}).some((a: any) => a?.hasApiKey || a?.apiKey);
+        const localHasKeys = local.defaultApiKey || Object.values(local.perAgent || {}).some((a: any) => a?.apiKey);
+
+        if (localHasKeys && !backendHasKeys) {
+          // Local has keys but backend doesn't — push local to backend
+          syncAiConfigToBackend(local);
+        } else if (backendHasKeys && !localHasKeys) {
+          // Cold-load case: backend has keys but localStorage was cleared.
+          // Backend won't return the raw values (redacted), so the user
+          // must re-enter their keys via the Connect tab.
+          console.warn('[buddies] Backend reports configured API keys but localStorage is empty. Re-enter your keys in the Connect tab.');
+        }
+        // Always merge non-secret backend metadata (provider, model, apiUrl)
+        // so the frontend reflects the source of truth on disk.
+        const mergedPerAgent: Record<string, any> = { ...local.perAgent };
+        for (const [name, agent] of Object.entries(backend.perAgent || {})) {
+          const a = agent as any;
+          mergedPerAgent[name] = {
+            provider: a.provider || mergedPerAgent[name]?.provider || '',
+            apiUrl: a.apiUrl || mergedPerAgent[name]?.apiUrl || '',
+            model: a.model || mergedPerAgent[name]?.model || '',
+            apiKey: mergedPerAgent[name]?.apiKey || '', // never overwrite local key with redacted value
+          };
+        }
+        state = {
+          ...state,
+          aiConfig: {
+            ...local,
+            defaultProvider: backend.defaultProvider || local.defaultProvider,
+            defaultApiUrl: backend.defaultApiUrl || local.defaultApiUrl,
+            defaultModel: backend.defaultModel || local.defaultModel,
+            // Never overwrite local apiKey with redacted backend value
+            defaultApiKey: local.defaultApiKey,
+            perAgent: mergedPerAgent,
+          },
+        };
         saveState(state);
         listeners.forEach((l) => l());
       }
     }
-  } catch {
-    // Config server not available
-  }
+  } catch {}
 }
 
-// Sync on startup
+// Sync on startup (runs after state is initialized due to async)
 loadAiConfigFromBackend();
 
 type Listener = () => void;

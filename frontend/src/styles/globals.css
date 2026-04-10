@@ -134,3 +134,12 @@ body {
   display: inline-block;
 }
 
+@keyframes warroom-card-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.warroom-card-in {
+  animation: warroom-card-in 300ms ease-out forwards;
+}
+
