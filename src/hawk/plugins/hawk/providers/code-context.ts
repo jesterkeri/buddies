@@ -1,5 +1,6 @@
 import type { Provider, IAgentRuntime, Memory, State } from '@elizaos/core';
 import { fetchFile, getRepoContext, fetchCommits, getOpenPRNumbers } from '../../../../shared/github-service.ts';
+import { isCasualMessage } from '../../../../shared/context-classifier.ts';
 
 /**
  * Hawk's code context provider — fetches relevant code files from the connected repo
@@ -29,8 +30,8 @@ export const codeContextProvider: Provider = {
     const text = (message.content?.text as string) || '';
     const lower = text.toLowerCase();
 
-    // Only activate for code-related messages
-    if (!CODE_KEYWORDS.some((k) => lower.includes(k))) {
+    // Skip for casual messages and non-code messages
+    if (isCasualMessage(text) || !CODE_KEYWORDS.some((k) => lower.includes(k))) {
       return {
         text: '',
         values: { hasCode: false },

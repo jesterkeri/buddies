@@ -21,8 +21,10 @@ export const connectionStatusProvider: Provider = {
       };
     }
 
+    // Don't inject status text for connected agents — it pollutes the LLM context
+    // and causes the agent to parrot "I am operational" in every response.
     return {
-      text: `${agentName} is connected and operational.`,
+      text: '',
       values: { isDisconnected: false },
       data: { isDisconnected: false },
     };

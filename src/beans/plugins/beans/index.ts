@@ -24,7 +24,20 @@ const checkWellness: Action = {
     }
 
     if (isTelegramConfigured()) {
-      await sendBreakReminder(120);
+      let minutesWorked = 120;
+      try {
+        const { existsSync, readFileSync } = await import('fs');
+        const { join } = await import('path');
+        const { DATA_DIR } = await import('../../../shared/constants.ts');
+        const eventPath = join(DATA_DIR, '.buddies-session-event.json');
+        if (existsSync(eventPath)) {
+          const data = JSON.parse(readFileSync(eventPath, 'utf-8'));
+          if (data.workSessionActive && data.workSessionStartedAt) {
+            minutesWorked = Math.floor((Date.now() - data.workSessionStartedAt) / 60_000);
+          }
+        }
+      } catch {}
+      await sendBreakReminder(minutesWorked);
     }
 
     fireTrigger('Buddy', 'CHECK_WELLNESS');

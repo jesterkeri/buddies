@@ -1,5 +1,6 @@
 import type { Provider, IAgentRuntime, Memory, State } from '@elizaos/core';
 import { getUserProfile } from '../../../../shared/config-server.ts';
+import { isCasualMessage } from '../../../../shared/context-classifier.ts';
 
 /**
  * Chief-specific project context provider.
@@ -9,11 +10,12 @@ import { getUserProfile } from '../../../../shared/config-server.ts';
 
 function getTaskContext(): string {
   try {
-    const fs = require('fs');
-    const path = require('path');
-    const taskFile = path.join(process.cwd(), '.buddies-tasks.json');
-    if (fs.existsSync(taskFile)) {
-      const tasks = JSON.parse(fs.readFileSync(taskFile, 'utf-8'));
+    const { existsSync, readFileSync } = require('fs');
+    const { join } = require('path');
+    const { DATA_DIR } = require('../../../../shared/constants.ts');
+    const taskFile = join(DATA_DIR, '.buddies-tasks.json');
+    if (existsSync(taskFile)) {
+      const tasks = JSON.parse(readFileSync(taskFile, 'utf-8'));
       if (Array.isArray(tasks) && tasks.length > 0) {
         const summary = tasks.map((t: any) =>
           `- [${t.status}] ${t.title} (${t.priority}, assigned: ${t.assignee || 'unassigned'})`
@@ -28,7 +30,11 @@ function getTaskContext(): string {
 export const projectContextProvider: Provider = {
   name: 'projectContext',
   description: 'Provides Chief with task board state and recent conversation context',
-  get: async (runtime: IAgentRuntime, _message: Memory, _state: State) => {
+  get: async (runtime: IAgentRuntime, message: Memory, _state: State) => {
+    const text = (message.content?.text as string) || '';
+    if (isCasualMessage(text)) {
+      return { text: '', values: { hasContext: false }, data: { hasContext: false } };
+    }
     const sections: string[] = [];
 
     // Task board

@@ -42,23 +42,33 @@ export const agentStateManager = new AgentStateManager();
 
 export const agentStateProvider: Provider = {
   name: 'agentStates',
-  description: 'Current status of all Buddies agents',
+  description: 'Current status of all Buddies agents (only connected agents with API keys)',
   get: async () => {
+    // Only show agents that actually have a working API key (not disconnected)
+    const { isAgentDisconnected } = await import('./ai-config.ts');
     const allStates = agentStateManager.getAllStates();
-    if (allStates.length === 0) {
+    const connectedStates = allStates.filter((s) => !isAgentDisconnected(s.agentName));
+    if (connectedStates.length === 0) {
       return {
-        text: '## Team Status\nNo agents registered yet.',
-        values: { agentStates: [] },
-        data: { agentStates: [] },
+        text: '## Team Status\nNo agents connected yet. Configure API keys in Settings.',
+        values: { agentStates: [], connectedCount: 0 },
+        data: { agentStates: [], connectedCount: 0 },
       };
     }
-    const lines = allStates.map(
+    const disconnectedNames = allStates
+      .filter((s) => isAgentDisconnected(s.agentName))
+      .map((s) => s.agentName);
+    const lines = connectedStates.map(
       (s) => `- **${s.agentName}**: ${s.status}${s.currentTask ? ` (${s.currentTask})` : ''}`
     );
+    let text = `## Team Status (${connectedStates.length} connected)\n${lines.join('\n')}`;
+    if (disconnectedNames.length > 0) {
+      text += `\n\nOffline: ${disconnectedNames.join(', ')} (no API key)`;
+    }
     return {
-      text: `## Team Status\n${lines.join('\n')}`,
-      values: { agentStates: allStates },
-      data: { agentStates: allStates },
+      text,
+      values: { agentStates: connectedStates, connectedCount: connectedStates.length },
+      data: { agentStates: connectedStates, connectedCount: connectedStates.length },
     };
   },
 };

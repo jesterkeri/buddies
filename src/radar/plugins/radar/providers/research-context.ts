@@ -1,5 +1,6 @@
 import type { Provider, IAgentRuntime, Memory, State } from '@elizaos/core';
 import { fetchWebPage } from '../../../../shared/web-fetch.ts';
+import { isCasualMessage } from '../../../../shared/context-classifier.ts';
 
 /**
  * Radar's research provider — fetches and summarizes URLs from the user's message.
@@ -27,6 +28,9 @@ export const researchContextProvider: Provider = {
   description: 'Fetches URLs and npm package info from the user message for research',
   get: async (_runtime: IAgentRuntime, message: Memory, _state: State) => {
     const text = (message.content?.text as string) || '';
+    if (isCasualMessage(text)) {
+      return { text: '', values: { hasResearch: false }, data: { hasResearch: false } };
+    }
     const sections: string[] = [];
 
     // Fetch any URLs in the message

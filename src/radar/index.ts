@@ -9,6 +9,7 @@ const character: Character = {
   plugins: [
     '@elizaos/plugin-sql',
     '@elizaos/plugin-openai',
+    '@elizaos/plugin-anthropic',
     '@elizaos/plugin-bootstrap',
   ],
   secrets: getAgentSecrets('Radar'),

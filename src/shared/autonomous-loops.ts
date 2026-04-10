@@ -1,7 +1,7 @@
 import { logger } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from './agent-state.ts';
 import { sendAgentMessage, postToUser } from './agent-messenger.ts';
-import { isAgentDisconnected } from './ai-config.ts';
+import { isAgentDisconnected, getAgentAiConfig } from './ai-config.ts';
 import { apiCall } from './http.ts';
 import {
   STANDUP_INTERVAL_MS,
@@ -138,10 +138,11 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
     taskName: 'wellness-check',
     intervalMs: WELLNESS_CHECK_INTERVAL_MS,
     handler: async () => {
-      // Only send wellness check after the user has been in-session for a while
+      // Send wellness checks based on elapsed time, scaled to be useful for demos
+      // and for real use. Wait 25 min minimum so we don't pester immediately.
       const elapsedMin = Math.floor((Date.now() - getSessionStartTime()) / 60_000);
-      if (elapsedMin < 60) {
-        logger.info(`[AUTONOMOUS] Buddy wellness: only ${elapsedMin}min elapsed, skipping (need 60+)`);
+      if (elapsedMin < 25) {
+        logger.info(`[AUTONOMOUS] Buddy wellness: only ${elapsedMin}min elapsed, skipping (need 25+)`);
         return;
       }
 
@@ -149,15 +150,22 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
       const mins = elapsedMin % 60;
       const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
 
-      // LLM-generated via sendAgentMessage, not hardcoded
-      const result = await sendAgentMessage(
-        'Chief',
-        `The user has been working for ${timeStr} this session. Send them a short, genuine wellness reminder. Be specific about the time. Keep it under 2 sentences.`,
-        'Buddy'
-      );
+      // Pick a reminder type based on duration so the messages stay varied
+      let prompt: string;
+      if (elapsedMin < 60) {
+        prompt = `The user has been working for ${timeStr} this session. Send a quick, warm check-in reminding them to drink water or stretch. Keep it under 2 sentences. Use 1 emoji.`;
+      } else if (elapsedMin < 120) {
+        prompt = `The user has been working for ${timeStr} straight. They should take a real break — get up, walk around, eat something. Send a friendly reminder, specific about the time. Keep it under 2 sentences. Use 1 emoji.`;
+      } else {
+        prompt = `The user has been working for ${timeStr} non-stop. That's a lot. Send a slightly more insistent but still kind reminder to take a longer break. Be specific about the duration. Keep it under 3 sentences. Use 1-2 emojis.`;
+      }
+
+      // LLM-generated via sendAgentMessage so it stays in Buddy's voice
+      const result = await sendAgentMessage('Chief', prompt, 'Buddy');
 
       if (result.sent && result.response) {
         await postToUser('Buddy', result.response);
+        logger.info(`[AUTONOMOUS] Buddy wellness check fired at ${timeStr} elapsed`);
       }
     },
   },
@@ -316,58 +324,100 @@ async function getRegisteredAgentCount(): Promise<number> {
   }
 }
 
+let loopsLaunched = false;
+
 export function startAutonomousLoops(): void {
   if (!AUTONOMOUS_ENABLED) {
     logger.info('[AUTONOMOUS] Loops disabled (AUTONOMOUS_ENABLED=false)');
     return;
   }
+  if (loopsLaunched) return;
 
-  // Poll until agents are actually registered in ElizaOS (not just AI config)
+  // Poll until agents are actually registered in ElizaOS (not just AI config).
+  // We launch the loops as soon as ANY agent registers — even just 1 — because
+  // the per-task setInterval handlers gate themselves on isAgentDisconnected
+  // at every tick, so it's safe to start with 1 and let the rest activate
+  // automatically as they connect.
   let retries = 0;
-  const poller = setInterval(async () => {
+  let pollerHandle: ReturnType<typeof setInterval> | null = null;
+
+  const tick = async (): Promise<void> => {
     retries++;
     const registered = await getRegisteredAgentCount();
 
     if (registered >= 5) {
-      clearInterval(poller);
-      logger.info(`[AUTONOMOUS] All ${registered} agents registered in ElizaOS, starting loops`);
+      if (pollerHandle) clearInterval(pollerHandle);
+      loopsLaunched = true;
+      logger.info(`[AUTONOMOUS] All ${registered} agents registered, launching loops`);
       launchLoops();
-    } else if (registered >= 2 && retries >= 15) {
-      // After 75s, proceed with what we have
-      clearInterval(poller);
-      logger.info(`[AUTONOMOUS] ${registered} agents registered after ${retries} attempts, starting loops`);
+    } else if (registered >= 1 && retries >= 6) {
+      // After ~30s with at least 1 agent, just go. Per-tick gating handles the rest.
+      if (pollerHandle) clearInterval(pollerHandle);
+      loopsLaunched = true;
+      logger.info(`[AUTONOMOUS] ${registered} agent(s) registered after ${retries} attempts, launching loops (others will activate on connect)`);
       launchLoops();
     } else if (retries >= MAX_CHANNEL_RETRIES) {
-      clearInterval(poller);
-      if (registered >= 2) {
-        logger.warn(`[AUTONOMOUS] Only ${registered} agents registered after max retries, starting with available`);
-        launchLoops();
-      } else {
-        logger.warn('[AUTONOMOUS] Not enough registered agents after 5 min, loops disabled');
-      }
+      if (pollerHandle) clearInterval(pollerHandle);
+      // Even with 0 agents, launch the loops anyway. The per-tick checks
+      // will keep them dormant until something connects. Better dormant
+      // intervals than no loops at all.
+      loopsLaunched = true;
+      logger.warn(`[AUTONOMOUS] Max retries reached with ${registered} agents — launching loops anyway, will activate on connect`);
+      launchLoops();
     } else {
       logger.info(`[AUTONOMOUS] Waiting for agents to register... ${registered}/5 (attempt ${retries})`);
     }
-  }, CHANNEL_POLL_INTERVAL_MS);
+  };
+
+  // Run the first check immediately so a fully-loaded boot can launch in <1s
+  // instead of waiting 5s for the first interval tick.
+  tick().catch((err) => logger.error(`[AUTONOMOUS] Initial tick failed: ${err}`));
+  pollerHandle = setInterval(tick, CHANNEL_POLL_INTERVAL_MS);
 }
+
+// In-flight guard to prevent duplicate concurrent standup runs.
+// Both launchLoops() and triggerStandupIfNeeded() can call runStartupStandup,
+// and the async nature means they can overlap and double-post.
+let standupInFlight = false;
 
 /**
  * Session startup standup — Chief asks each agent for a status update via LLM.
  * Only runs when an API key is configured (no point without LLM).
+ * Returns true ONLY if a standup was actually posted to the user.
+ * Callers use this to decide whether to latch the "completed" flag.
  */
-async function runStartupStandup(): Promise<void> {
+async function runStartupStandup(): Promise<boolean> {
+  if (standupInFlight) {
+    logger.info('[AUTONOMOUS] Standup already in flight — skipping duplicate');
+    return false;
+  }
+  standupInFlight = true;
+  try {
+    return await runStartupStandupInner();
+  } finally {
+    standupInFlight = false;
+  }
+}
+
+async function runStartupStandupInner(): Promise<boolean> {
   const connected = getConnectedAgents('');
-  if (connected.length === 0) return;
+  if (connected.length === 0) {
+    logger.info('[AUTONOMOUS] Standup skipped — no connected agents yet');
+    return false;
+  }
 
   // Don't run standup if no API key is configured — agents can't generate responses
-  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === '') {
-    logger.info('[AUTONOMOUS] Skipping startup standup — no API key configured yet');
-    return;
+  if (!hasApiKey()) {
+    logger.info('[AUTONOMOUS] Standup skipped — no API key configured yet');
+    return false;
+  }
+
+  if (isAgentDisconnected('Chief')) {
+    logger.info('[AUTONOMOUS] Standup skipped — Chief is disconnected');
+    return false;
   }
 
   logger.info(`[AUTONOMOUS] Running startup standup with ${connected.length} agents`);
-
-  if (isAgentDisconnected('Chief')) return;
 
   // Ask each agent for a real LLM-generated status update
   const responses: string[] = [];
@@ -384,54 +434,73 @@ async function runStartupStandup(): Promise<void> {
     }
   }
 
-  // Post real standup summary to user
-  if (responses.length > 0) {
-    // Read task state for context
-    let taskSummary = '';
-    try {
-      const tasksPath = join(DATA_DIR, '.buddies-tasks.json');
-      if (existsSync(tasksPath)) {
-        const tasks = JSON.parse(readFileSync(tasksPath, 'utf-8'));
-        if (Array.isArray(tasks) && tasks.length > 0) {
-          const done = tasks.filter((t: any) => t.status === 'done').length;
-          const active = tasks.filter((t: any) => t.status === 'in_progress').length;
-          const todo = tasks.filter((t: any) => t.status === 'todo').length;
-          taskSummary = `\n\nMission board: ${done} done, ${active} active, ${todo} queued.`;
-        }
-      }
-    } catch {}
-
-    await postToUser(
-      'Chief',
-      `Team standup — ${responses.length} agent(s) reporting:\n\n${responses.join('\n\n')}${taskSummary}`
-    );
+  // Only consider the standup complete if we actually got responses to post
+  if (responses.length === 0) {
+    logger.info('[AUTONOMOUS] Standup ran but no agents responded — not latching');
+    return false;
   }
+
+  // Read task state for context
+  let taskSummary = '';
+  try {
+    const tasksPath = join(DATA_DIR, '.buddies-tasks.json');
+    if (existsSync(tasksPath)) {
+      const tasks = JSON.parse(readFileSync(tasksPath, 'utf-8'));
+      if (Array.isArray(tasks) && tasks.length > 0) {
+        const done = tasks.filter((t: any) => t.status === 'done').length;
+        const active = tasks.filter((t: any) => t.status === 'in_progress').length;
+        const todo = tasks.filter((t: any) => t.status === 'todo').length;
+        taskSummary = `\n\nMission board: ${done} done, ${active} active, ${todo} queued.`;
+      }
+    }
+  } catch {}
+
+  await postToUser(
+    'Chief',
+    `Team standup — ${responses.length} agent(s) reporting:\n\n${responses.join('\n\n')}${taskSummary}`
+  );
+
+  return true;
 }
 
 function hasApiKey(): boolean {
-  return !!(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== '' && process.env.OPENAI_API_KEY !== 'disabled');
+  // Check dynamic per-agent config first (covers Google, Groq, OpenAI, etc.)
+  const allAgents = ['Chief', 'Hawk', 'Radar', 'Bounty Hunter', 'Buddy'];
+  for (const agent of allAgents) {
+    const config = getAgentAiConfig(agent);
+    if (config.provider && config.provider !== 'none' && config.apiKey) {
+      return true;
+    }
+  }
+  // Fallback: check process.env for keys set outside the frontend config
+  const keys = [process.env.OPENAI_API_KEY, process.env.ANTHROPIC_API_KEY];
+  return keys.some((k) => k && k !== '' && k !== 'disabled');
 }
 
 function launchLoops(): void {
   logger.info(`[AUTONOMOUS] Starting ${AUTONOMOUS_TASKS.length} autonomous tasks`);
 
-  // Run startup standup immediately (it checks for API key internally)
-  runStartupStandup().catch((err) => {
-    logger.error(`[AUTONOMOUS] Startup standup failed: ${err}`);
-  });
+  // Run startup standup immediately (it checks for API key internally).
+  // Only latch standupCompleted=true if a standup was actually posted.
+  runStartupStandup()
+    .then((posted) => { if (posted) standupCompleted = true; })
+    .catch((err) => {
+      logger.error(`[AUTONOMOUS] Startup standup failed: ${err}`);
+    });
 
-  AUTONOMOUS_TASKS.forEach((task, index) => {
+  // Start an interval for EVERY task regardless of current connection state.
+  // The per-tick check will skip the handler if the agent isn't connected
+  // when the interval fires. This means a user can connect an agent later
+  // and its loop starts ticking automatically — no restart required.
+  AUTONOMOUS_TASKS.forEach((task) => {
     const key = `${task.agentName}:${task.taskName}`;
 
-    // Skip if the agent isn't connected
     if (isAgentDisconnected(task.agentName)) {
-      logger.info(`[AUTONOMOUS] Skipping ${key} — agent not connected`);
-      return;
+      logger.info(`[AUTONOMOUS] ${key} interval registered (agent currently disconnected, will activate when connected)`);
     }
 
-    // Don't fire tasks immediately — wait for the first interval
     const interval = setInterval(async () => {
-      // Skip if no API key configured or agent is busy/disconnected
+      // Per-tick gating: skip the handler if the world isn't ready for this task
       if (!hasApiKey() || isAgentBusy(task.agentName) || isAgentDisconnected(task.agentName)) {
         return;
       }
@@ -444,6 +513,24 @@ function launchLoops(): void {
 
     activeTimers.set(`${key}:interval`, interval);
   });
+}
+
+// Track whether the startup standup has run successfully
+let standupCompleted = false;
+
+/**
+ * Trigger a standup if one hasn't successfully run yet.
+ * Called by the config server when a new API key is saved,
+ * so users see agents come alive immediately after connecting.
+ * Only latches standupCompleted on actual posted success — so if the
+ * first attempt skipped (no agents registered yet, no key, etc.),
+ * a later attempt can still succeed.
+ */
+export function triggerStandupIfNeeded(): void {
+  if (standupCompleted) return;
+  runStartupStandup()
+    .then((posted) => { if (posted) standupCompleted = true; })
+    .catch((err) => { logger.error(`[AUTONOMOUS] Triggered standup failed: ${err}`); });
 }
 
 export function stopAutonomousLoops(): void {

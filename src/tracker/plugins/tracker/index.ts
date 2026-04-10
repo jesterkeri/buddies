@@ -44,13 +44,23 @@ const scanOpportunities: Action = {
       scored.sort((a, b) => b.matchScore - a.matchScore);
     }
 
+    // Escape markdown metacharacters to prevent scraped titles from
+    // breaking link structure or injecting markdown into the chat.
+    const escMd = (s: string) => (s || '').replace(/[\\\[\]()*_`]/g, '\\$&').replace(/[\r\n]+/g, ' ');
+    const isHttpUrl = (u: string | undefined) => {
+      if (!u) return false;
+      try { const x = new URL(u); return x.protocol === 'http:' || x.protocol === 'https:'; } catch { return false; }
+    };
+
     const summary = scored.length > 0
       ? scored.slice(0, 15).map((l, i) => {
-          let line = `${i + 1}. **${l.title}** (${l.source})`;
+          const safeTitle = escMd(l.title || 'Untitled');
+          const safeSource = escMd(l.source);
+          const titleLink = isHttpUrl(l.url) ? `[${safeTitle}](${l.url})` : `**${safeTitle}**`;
+          let line = `${i + 1}. ${titleLink} (${safeSource})`;
           if (l.matchScore > 0) line += ` — ${l.matchScore}% match`;
-          if (l.prize) line += ` | ${l.prize}`;
-          if (l.deadline) line += ` | Deadline: ${l.deadline}`;
-          if (l.url) line += `\n   ${l.url}`;
+          if (l.prize) line += ` | ${escMd(l.prize)}`;
+          if (l.deadline) line += ` | Deadline: ${escMd(l.deadline)}`;
           return line;
         }).join('\n')
       : 'No active listings found at this time. Try again later or provide a specific URL to scan.';
@@ -63,7 +73,8 @@ const scanOpportunities: Action = {
     }
 
     if (isTelegramConfigured() && listings.length > 0) {
-      await sendOpportunityAlert(listings[0].title, listings[0].prize || 'TBD', listings[0].url || '');
+      const matchStr = scored[0]?.matchScore ? `${scored[0].matchScore}% match` : 'TBD';
+      await sendOpportunityAlert(listings[0].title, matchStr, listings[0].prize || 'TBD');
     }
 
     fireTrigger('Bounty Hunter', 'SCAN_OPPORTUNITIES');
