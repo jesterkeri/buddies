@@ -43,7 +43,7 @@ export function getTargetPosition(name: string, agentStatus: string): Point {
     return MEETING_POSITIONS[name] || SEAT_POSITIONS[name];
   }
   if (agentStatus === 'BREAK' || (name === 'Buddy' && agentStatus === 'IDLE')) {
-    // Buddy hangs out at break area when idle
+    return BREAK_POSITION;
   }
   // Default: go to desk
   return SEAT_POSITIONS[name] || { col: 1, row: 1 };
@@ -116,6 +116,7 @@ export function updateCharacter(char: CharacterData, agentStatus: string): Chara
 function mapStatusToState(status: string): CharacterState {
   switch (status) {
     case 'MEETING': return 'meeting';
+    case 'BREAK': return 'break';
     case 'REVIEWING':
     case 'RESEARCHING':
     case 'SCANNING':

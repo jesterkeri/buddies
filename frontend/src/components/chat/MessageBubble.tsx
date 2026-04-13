@@ -97,40 +97,39 @@ function renderMarkdown(text: string): React.ReactNode {
 
 export default function MessageBubble({ message, showHeader, onReply }: MessageBubbleProps) {
   const { authorName, isAgent, content, timestamp, agentColor } = message;
-
   const replyButton = onReply ? (
     <button
       onClick={() => onReply(message)}
-      className="opacity-0 group-hover:opacity-100 text-[9px] font-mono px-1.5 py-0.5 transition-opacity hover:bg-white/10"
-      style={{ color: 'rgba(242,244,243,0.5)' }}
+      className="opacity-0 group-hover:opacity-100 text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 transition-opacity hover:opacity-80"
+      style={{ color: 'rgba(242,244,243,0.4)', fontFamily: '"Space Mono", monospace' }}
     >
-      reply
+      [ Reply ]
     </button>
   ) : null;
 
   // User messages on right
   if (!isAgent) {
     return (
-      <div className={`group flex justify-end px-4 ${showHeader ? 'pt-3' : 'pt-1'}`}>
-        <div className="max-w-[75%]">
+      <div className={`group flex justify-end px-4 ${showHeader ? 'pt-4' : 'pt-1'}`}>
+        <div className="max-w-[80%]">
           {showHeader && (
-            <div className="flex items-baseline justify-end gap-2 mb-1">
+            <div className="flex items-baseline justify-end gap-3 mb-1.5">
               {replyButton}
-              <span className="text-[9px] font-mono" style={{ color: 'rgba(242,244,243,0.4)' }}>
+              <span className="text-[10px] font-mono" style={{ color: 'rgba(242,244,243,0.3)' }}>
                 {formatTime(timestamp)}
               </span>
-              <span className="text-xs font-display uppercase tracking-wider" style={{ color: '#2BB6B3' }}>
+              <span className="text-[11px] font-display font-bold uppercase tracking-widest" style={{ color: '#2BB6B3' }}>
                 YOU
               </span>
             </div>
           )}
           <div
-            className="px-3 py-2 text-sm font-mono leading-relaxed break-words"
+            className="px-4 py-2.5 text-[12px] font-mono leading-relaxed break-words relative shadow-md"
             style={{
-              backgroundColor: '#1A3A3A',
+              backgroundColor: '#1A202C',
               color: '#F2F4F3',
-              borderRadius: '12px 12px 2px 12px',
-              border: '1px solid rgba(43,182,179,0.3)',
+              borderRadius: '4px',
+              borderRight: '3px solid #2BB6B3',
             }}
           >
             {renderMarkdown(content)}
@@ -142,33 +141,33 @@ export default function MessageBubble({ message, showHeader, onReply }: MessageB
 
   // Agent messages on left
   return (
-    <div className={`group flex gap-2.5 px-4 ${showHeader ? 'pt-3' : 'pt-1'}`}>
+    <div className={`group flex gap-3 px-4 ${showHeader ? 'pt-4' : 'pt-1'}`}>
       {showHeader ? (
         <AgentAvatar name={authorName} size="md" />
       ) : (
         <div className="w-10 shrink-0" />
       )}
-      <div className="max-w-[75%]">
+      <div className="max-w-[80%]">
         {showHeader && (
-          <div className="flex items-baseline gap-2 mb-1">
+          <div className="flex items-baseline gap-3 mb-1.5">
             <span
-              className="text-xs font-display uppercase tracking-wider"
+              className="text-[11px] font-display uppercase tracking-widest font-bold"
               style={{ color: agentColor || '#F2F4F3' }}
             >
               {authorName}
             </span>
-            <span className="text-[9px] font-mono" style={{ color: 'rgba(242,244,243,0.4)' }}>
+            <span className="text-[10px] font-mono" style={{ color: 'rgba(242,244,243,0.3)' }}>
               {formatTime(timestamp)}
             </span>
             {replyButton}
           </div>
         )}
         <div
-          className="px-3 py-2 text-sm font-mono leading-relaxed break-words"
+          className="px-4 py-2.5 text-[12px] font-mono leading-relaxed break-words relative shadow-md"
           style={{
-            backgroundColor: '#1A1A2E',
+            backgroundColor: '#1E2530',
             color: '#E8E8E8',
-            borderRadius: '12px 12px 12px 2px',
+            borderRadius: '4px',
             borderLeft: `3px solid ${agentColor || '#64748b'}`,
           }}
         >

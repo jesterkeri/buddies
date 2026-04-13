@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { logger } from '@elizaos/core';
 import { loadAiConfig, saveAiConfig, invalidateAiConfigCache, type AiConfigState } from './ai-config.ts';
-import { triggerStandupIfNeeded } from './autonomous-loops.ts';
+import { triggerStandupIfNeeded, triggerSessionStandup } from './autonomous-loops.ts';
 
 import { DATA_DIR } from './constants.ts';
 
@@ -20,7 +20,7 @@ const PROVIDER_URLS: Record<string, string> = {
   xai: 'https://api.x.ai/v1',
   kimi: 'https://api.moonshot.cn/v1',
   minimax: 'https://api.minimax.chat/v1',
-  nosana: 'https://3gsrmj6gchzyws9bnc835apd4fh6t5tyeppmbxmzrzhn.node.k8s.prd.nos.ci/v1',
+  nosana: 'https://5i8frj7ann99bbw9gzpprvzj2esugg39hxbb4unypskq.node.k8s.prd.nos.ci/v1',
 };
 
 /**
@@ -74,6 +74,22 @@ function isValidApiUrl(provider: string, apiUrl: string): boolean {
   let expectedHost: string;
   try { expectedHost = new URL(expected).hostname; } catch { return false; }
   return parsed.hostname === expectedHost;
+}
+
+function sanitizeProviderTestError(status: number, statusText: string): string {
+  if (status === 401 || status === 403) {
+    return `${status}: Authentication failed`;
+  }
+  if (status === 404) {
+    return `${status}: Provider endpoint or model not found`;
+  }
+  if (status === 408 || status === 429) {
+    return `${status}: Provider unavailable or rate limited`;
+  }
+  if (status >= 500) {
+    return `${status}: Provider server error`;
+  }
+  return `${status}: Provider request failed (${statusText || 'unknown error'})`;
 }
 
 /**
@@ -241,7 +257,7 @@ export function startConfigServer(): void {
     });
   }
 
-  const server = createServer((req, res) => {
+  const server = createServer(async (req, res) => {
     const allowedOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173', 'http://127.0.0.1:5173'];
     const origin = req.headers.origin || '';
     if (allowedOrigins.includes(origin)) {
@@ -318,7 +334,7 @@ export function startConfigServer(): void {
           applyConfigToEnv(config);
           res.writeHead(200);
           res.end(JSON.stringify({ success: true, message: 'Config saved.' }));
-          logger.info(`[BUDDIES] AI config saved. hasKey=${!!process.env.OPENAI_API_KEY} provider=${config?.defaultProvider || 'none'}`);
+          logger.info(`[BUDDIES] AI config saved. provider=${config?.defaultProvider || 'none'}`);
           triggerStandupIfNeeded();
         } catch {
           res.writeHead(400);
@@ -450,13 +466,93 @@ export function startConfigServer(): void {
     }
 
     if (req.method === 'POST' && req.url === '/tasks') {
-      readBody(req, res).then((body) => {
+      readBody(req, res).then(async (body) => {
         if (body === null) return;
         try {
-          const tasks = JSON.parse(body);
-          writeFileSync(TASKS_PATH, JSON.stringify(tasks, null, 2));
+          const newTasks = JSON.parse(body);
+          if (!Array.isArray(newTasks)) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ success: false, error: 'Tasks payload must be an array' }));
+            return;
+          }
+          const { withTaskLock } = await import('./task-provider.ts');
+
+          // Locked read-compare-write to prevent concurrent clobbering
+          const brandNew = await withTaskLock(() => {
+            let oldIds = new Set<string>();
+            try {
+              if (existsSync(TASKS_PATH)) {
+                const old = JSON.parse(readFileSync(TASKS_PATH, 'utf-8'));
+                if (Array.isArray(old)) oldIds = new Set(old.map((t: any) => t.id));
+              }
+            } catch {}
+            writeFileSync(TASKS_PATH, JSON.stringify(newTasks, null, 2));
+
+            // Detect newly created assigned TODO tasks
+            return newTasks.filter((t: any) =>
+              !oldIds.has(t.id) && t.status === 'todo' && t.assignee
+            );
+          });
+
           res.writeHead(200);
           res.end(JSON.stringify({ success: true }));
+
+          // Auto-pickup outside the lock (LLM calls take seconds)
+          if (brandNew.length > 0) {
+            try {
+              const { autoPickupTask } = await import('./work-on-task.ts');
+              for (const t of brandNew) {
+                autoPickupTask(t.assignee, t.id).catch((err: any) =>
+                  logger.error(`[CONFIG] Auto-pickup failed for ${t.assignee}: ${err}`)
+                );
+              }
+            } catch {}
+          }
+        } catch {
+          res.writeHead(400);
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/tasks/resume') {
+      readBody(req, res).then(async (body) => {
+        if (body === null) return;
+        try {
+          const data = JSON.parse(body);
+          const taskId = typeof data?.taskId === 'string' ? data.taskId : '';
+          if (!taskId) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ success: false, error: 'taskId is required' }));
+            return;
+          }
+
+          const { readTasks } = await import('./task-provider.ts');
+          const task = readTasks().find((t: any) => t.id === taskId);
+          if (!task) {
+            res.writeHead(404);
+            res.end(JSON.stringify({ success: false, error: 'Task not found' }));
+            return;
+          }
+          if (!task.assignee) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ success: false, error: 'Task has no assignee' }));
+            return;
+          }
+          if (task.status !== 'in_progress' && task.status !== 'todo') {
+            res.writeHead(400);
+            res.end(JSON.stringify({ success: false, error: 'Task is not resumable' }));
+            return;
+          }
+
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true }));
+
+          const { autoPickupTask } = await import('./work-on-task.ts');
+          autoPickupTask(task.assignee, task.id).catch((err: any) =>
+            logger.error(`[CONFIG] Resume task failed for ${task.assignee}: ${err}`)
+          );
         } catch {
           res.writeHead(400);
           res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
@@ -489,6 +585,11 @@ export function startConfigServer(): void {
           res.writeHead(200);
           res.end(JSON.stringify({ success: true }));
           logger.info(`[BUDDIES] Session event: ${event}`);
+
+          // Trigger standup when a new work session starts
+          if (event === 'start') {
+            triggerSessionStandup();
+          }
         } catch {
           res.writeHead(400);
           res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
@@ -510,6 +611,67 @@ export function startConfigServer(): void {
         res.writeHead(200);
         res.end(JSON.stringify({ workSessionActive: false }));
       }
+      return;
+    }
+
+    // ── Test Connection (validates provider key with a minimal API call) ──
+    if (req.method === 'POST' && req.url === '/config/test') {
+      const body = await readBody(req, res);
+      if (body === null) return; // 413 already sent
+      try {
+        const { provider, apiKey, apiUrl, model } = JSON.parse(body);
+
+          // Security: validate provider + URL before making outbound request
+          if (!isKnownProvider(provider)) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ success: false, error: `Unknown provider: ${provider}` }));
+            return;
+          }
+          const resolvedUrl = apiUrl || PROVIDER_URLS[provider] || '';
+          if (!isValidApiUrl(provider, resolvedUrl)) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ success: false, error: `Invalid API URL for ${provider}` }));
+            return;
+          }
+
+          const testModel = model || 'gpt-4o-mini';
+          let testUrl: string;
+          let testHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+          let testBody: string;
+
+          if (provider === 'anthropic') {
+            testUrl = `${resolvedUrl}/messages`;
+            testHeaders['x-api-key'] = apiKey;
+            testHeaders['anthropic-version'] = '2023-06-01';
+            testBody = JSON.stringify({ model: testModel, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 });
+          } else if (provider === 'ollama' || provider === 'nosana') {
+            testUrl = `${resolvedUrl}/models`;
+            testBody = '';
+          } else {
+            // OpenAI-compatible (openai, groq, openrouter, deepseek, xai, kimi, minimax, google)
+            testUrl = `${resolvedUrl}/chat/completions`;
+            testHeaders['Authorization'] = `Bearer ${apiKey}`;
+            testBody = JSON.stringify({ model: testModel, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 });
+          }
+
+          const fetchOpts: RequestInit = { method: testBody ? 'POST' : 'GET', headers: testHeaders };
+          if (testBody) fetchOpts.body = testBody;
+
+          const testRes = await fetch(testUrl, fetchOpts);
+          if (testRes.ok) {
+            res.writeHead(200);
+            res.end(JSON.stringify({ success: true }));
+          } else {
+            res.writeHead(200);
+            res.end(JSON.stringify({
+              success: false,
+              error: sanitizeProviderTestError(testRes.status, testRes.statusText),
+            }));
+          }
+        } catch (err: any) {
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: false, error: err.message || 'Connection failed' }));
+        }
       return;
     }
 

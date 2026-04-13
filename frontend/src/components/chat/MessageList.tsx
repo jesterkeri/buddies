@@ -45,15 +45,15 @@ export default function MessageList({ messages, isLoading, onReply }: MessageLis
     <div ref={scrollRef} className="flex-1 overflow-y-auto pb-4">
       {messages.length === 0 && (
         <div className="flex items-center justify-center h-full">
-          <div className="text-center px-8">
-            <p className="font-display text-2xl" style={{ color: '#F9D616', transform: 'rotate(-2deg)' }}>
-              CHANNEL OPEN
+          <div className="text-center px-8 border-2 border-dashed rounded py-6 opacity-60" style={{ borderColor: 'rgba(242,244,243,0.1)' }}>
+            <p className="font-display text-[14px] font-bold tracking-widest uppercase mb-1" style={{ color: '#2BB6B3' }}>
+              Channel Open
             </p>
-            <p className="font-mono text-xs mt-3 leading-relaxed" style={{ color: 'rgba(242,244,243,0.4)' }}>
-              // TEAM_COMMS initialized<br />
-              // 5 agents standing by<br />
-              // Type a message below to begin<br />
-              // Use @AgentName to address specific agent
+            <p className="font-mono text-[10px] leading-relaxed" style={{ color: 'rgba(242,244,243,0.4)' }}>
+              Secure TEAM_COMMS initialized.<br />
+              All agents standing by.<br />
+              Transmit a command below to begin.<br />
+              Use <span style={{ color: '#2BB6B3' }}>@AgentName</span> to tag operators.
             </p>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { TabId } from '../../types';
+import { useAutonomousPoller } from '../../api/hooks';
 import TopNav from './TopNav';
 import Sidebar from './Sidebar';
 import ChatRoom from '../chat/ChatRoom';
@@ -12,8 +13,13 @@ import WarRoomTimeline from '../warroom/WarRoomTimeline';
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabId>('chat');
+  const [pendingMention, setPendingMention] = useState<string | null>(null);
+
+  // Single polling owner for autonomous messages — feeds INTEL, chat, and war room
+  useAutonomousPoller();
 
   const handleAgentClick = (name: string) => {
+    setPendingMention(name);
     setActiveTab('chat');
   };
 
@@ -26,7 +32,7 @@ export default function Dashboard() {
 
         <main className="flex-1 overflow-hidden flex gap-3">
           <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-            {activeTab === 'chat' && <ChatRoom />}
+            {activeTab === 'chat' && <ChatRoom pendingMention={pendingMention} onMentionConsumed={() => setPendingMention(null)} />}
             {activeTab === 'office' && <PixelOffice onAgentClick={handleAgentClick} />}
             {activeTab === 'tasks' && <TaskBoard />}
             {activeTab === 'activity' && <ActivityFeed />}

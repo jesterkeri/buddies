@@ -45,10 +45,14 @@ interface AutonomousTask {
   handler: () => Promise<void>;
 }
 
-// Helper: get list of connected agent names (excluding a given agent)
+// Full agent roster — agentStateManager is for current status, NOT for who exists.
+// This list is the source of truth for "which agents could be contacted."
+const ALL_AGENTS = ['Chief', 'Hawk', 'Radar', 'Bounty Hunter', 'Buddy'];
+
+// Helper: get list of connected agent names (excluding a given agent).
+// Always uses the full roster filtered by isAgentDisconnected.
 function getConnectedAgents(exclude: string): string[] {
-  const allAgents = ['Chief', 'Hawk', 'Radar', 'Bounty Hunter', 'Buddy'];
-  return allAgents.filter((a) => a !== exclude && !isAgentDisconnected(a));
+  return ALL_AGENTS.filter((a) => a !== exclude && !isAgentDisconnected(a));
 }
 
 const AUTONOMOUS_TASKS: AutonomousTask[] = [
@@ -113,9 +117,15 @@ const AUTONOMOUS_TASKS: AutonomousTask[] = [
           return;
         }
 
-        const summary = bounties.slice(0, 5).map((b) =>
-          `- **${b.title}** (${b.source})${b.prize ? ` — ${b.prize}` : ''}`
-        ).join('\n');
+        const summary = bounties
+          .slice(0, 5)
+          .map((b) => {
+            const title = (b.title || 'Untitled').replace(/[\\\[\]()*_`]/g, '\\$&');
+            const source = (b.source || 'Unknown').replace(/[\\\[\]()*_`]/g, '\\$&');
+            const titleLink = b.url ? `[${title}](${b.url})` : `**${title}**`;
+            return `- ${titleLink} (${source})${b.prize ? ` — ${b.prize}` : ''}`;
+          })
+          .join('\n');
 
         await postToUser(
           'Bounty Hunter',
@@ -345,13 +355,8 @@ export function startAutonomousLoops(): void {
     retries++;
     const registered = await getRegisteredAgentCount();
 
-    if (registered >= 5) {
-      if (pollerHandle) clearInterval(pollerHandle);
-      loopsLaunched = true;
-      logger.info(`[AUTONOMOUS] All ${registered} agents registered, launching loops`);
-      launchLoops();
-    } else if (registered >= 1 && retries >= 6) {
-      // After ~30s with at least 1 agent, just go. Per-tick gating handles the rest.
+    if (registered >= 1 && retries >= 3) {
+      // After ~15s with at least 1 agent, launch. Per-tick gating handles late arrivals.
       if (pollerHandle) clearInterval(pollerHandle);
       loopsLaunched = true;
       logger.info(`[AUTONOMOUS] ${registered} agent(s) registered after ${retries} attempts, launching loops (others will activate on connect)`);
@@ -365,7 +370,7 @@ export function startAutonomousLoops(): void {
       logger.warn(`[AUTONOMOUS] Max retries reached with ${registered} agents — launching loops anyway, will activate on connect`);
       launchLoops();
     } else {
-      logger.info(`[AUTONOMOUS] Waiting for agents to register... ${registered}/5 (attempt ${retries})`);
+      logger.info(`[AUTONOMOUS] Waiting for agents to register... ${registered} so far (attempt ${retries})`);
     }
   };
 
@@ -386,7 +391,7 @@ let standupInFlight = false;
  * Returns true ONLY if a standup was actually posted to the user.
  * Callers use this to decide whether to latch the "completed" flag.
  */
-async function runStartupStandup(): Promise<boolean> {
+export async function runStartupStandup(): Promise<boolean> {
   if (standupInFlight) {
     logger.info('[AUTONOMOUS] Standup already in flight — skipping duplicate');
     return false;
@@ -531,6 +536,16 @@ export function triggerStandupIfNeeded(): void {
   runStartupStandup()
     .then((posted) => { if (posted) standupCompleted = true; })
     .catch((err) => { logger.error(`[AUTONOMOUS] Triggered standup failed: ${err}`); });
+}
+
+/**
+ * Force a standup on new work session start — ignores the completed latch.
+ * Called by config-server when POST /session-event receives a 'start' event.
+ */
+export function triggerSessionStandup(): void {
+  runStartupStandup()
+    .then((posted) => { if (posted) standupCompleted = true; })
+    .catch((err) => { logger.error(`[AUTONOMOUS] Session standup failed: ${err}`); });
 }
 
 export function stopAutonomousLoops(): void {

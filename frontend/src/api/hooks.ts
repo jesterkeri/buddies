@@ -16,7 +16,15 @@ import {
   getAgentStates,
 } from './client';
 import { getUserEntityId, getAgentColor, type AgentInfo, type ChatMessage, type AgentState } from '../types';
-import { registerSessionLifecycle } from '../components/session/sessionStore';
+import { registerSessionLifecycle, getSessionState } from '../components/session/sessionStore';
+
+/** Shared query key for autonomous messages — one polling owner, multiple readers. */
+export const AUTONOMOUS_MESSAGES_KEY = ['autonomous-messages'];
+
+export interface OutgoingMessagePayload {
+  displayContent: string;
+  agentContent?: string;
+}
 
 // ── Agents ──
 
@@ -31,7 +39,8 @@ export function useAgents() {
         color: getAgentColor(a.name || a.character?.name || ''),
       }));
     },
-    staleTime: 60_000,
+    staleTime: 10_000,
+    refetchInterval: 10_000, // Live roster updates for HQ + Sidebar
   });
 }
 
@@ -255,11 +264,8 @@ export function useMessages(viewingSessionId?: string) {
       // Agent-to-agent messages (standups, coordination) are the core demo moment
       // Filter by session start time so old messages don't bleed into new sessions
       try {
-        const autoMsgs = await queryClient.fetchQuery({
-          queryKey: ['autonomous-messages'],
-          queryFn: getAutonomousMessages,
-          staleTime: 2000,
-        });
+        // Read from shared cache (owned by useAutonomousPoller in Dashboard)
+        const autoMsgs: any[] = queryClient.getQueryData(AUTONOMOUS_MESSAGES_KEY) || [];
         const currentSession = loadSessionsIndex().find((s) => s.id === activeSessionId);
         const sessionStart = currentSession?.startedAt || 0;
 
@@ -363,8 +369,10 @@ export function useSendMessage() {
   const entityId = getUserEntityId();
 
   return useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async (payload: string | OutgoingMessagePayload) => {
       if (!agents || agents.length === 0) throw new Error('No agents');
+
+      const displayContent = typeof payload === 'string' ? payload : payload.displayContent;
 
       // Add user message immediately
       const userMsg: ChatMessage = {
@@ -372,7 +380,7 @@ export function useSendMessage() {
         authorId: entityId,
         authorName: 'You',
         isAgent: false,
-        content,
+        content: displayContent,
         timestamp: Date.now(),
       };
       seenMessageIds.add(userMsg.id);
@@ -381,7 +389,10 @@ export function useSendMessage() {
       queryClient.setQueryData<ChatMessage[]>(['allMessages', activeSessionId], allMessages);
 
       // Find which agent to talk to
-      const targetAgent = findTargetAgent(content, agents);
+      const targetAgent = findTargetAgent(displayContent, agents);
+      const content = typeof payload === 'string'
+        ? enrichAgentMessage(displayContent, targetAgent.name)
+        : (payload.agentContent || payload.displayContent);
 
       // Show typing indicator
       setTypingAgent(targetAgent.name);
@@ -433,7 +444,7 @@ export function useSendMessage() {
             authorId: targetAgent.id,
             authorName: targetAgent.name,
             isAgent: true,
-            content: `Cannot reach ${targetAgent.name}. Check API key in Connect tab.`,
+            content: `${targetAgent.name} did not respond. The agent may be busy or temporarily unavailable.`,
             timestamp: Date.now(),
             agentColor: targetAgent.color,
           };
@@ -478,6 +489,43 @@ export function useSendMessage() {
   });
 }
 
+const REFERENTIAL_FOLLOWUP_RE = /\b(this|that|these|those|it|them|links?|above|earlier|previous|same|break down|for these)\b/i;
+
+function stripMentions(content: string): string {
+  return content.replace(/@([\w][\w\s]*[\w])(?=\s|$|[.,!?])/g, '').trim();
+}
+
+function truncateContext(content: string, maxLength = 900): string {
+  const normalized = content.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength - 3)}...`;
+}
+
+function shouldAttachRecentContext(content: string, targetAgentName: string): boolean {
+  const lower = content.toLowerCase();
+  const hasExplicitMention = lower.includes(`@${targetAgentName.toLowerCase()}`);
+  const stripped = stripMentions(content);
+  const wordCount = stripped ? stripped.split(/\s+/).length : 0;
+  return hasExplicitMention && (REFERENTIAL_FOLLOWUP_RE.test(stripped) || wordCount <= 8);
+}
+
+function enrichAgentMessage(content: string, targetAgentName: string): string {
+  if (!shouldAttachRecentContext(content, targetAgentName)) return content;
+
+  const recentContext = [...allMessages]
+    .reverse()
+    .find((msg) => msg.isAgent && msg.authorName === targetAgentName);
+
+  if (!recentContext) return content;
+
+  return `${content}
+
+[Recent context from ${targetAgentName}'s previous message]
+${truncateContext(recentContext.content)}
+
+Use that context to resolve references like "these", "those", "the links", or "the list above".`;
+}
+
 // ── Find target agent from @mention or content domain ──
 
 const AGENT_DOMAINS: Record<string, string[]> = {
@@ -518,6 +566,44 @@ function findTargetAgent(content: string, agents: AgentInfo[]): AgentInfo {
 
   // Default to Chief only if connected, otherwise first connected agent
   return agents.find((a) => a.name === 'Chief') || agents[0];
+}
+
+// ── Autonomous Messages Poller (Dashboard-level, single owner) ──
+
+const seenActivityIds = new Set<string>();
+
+/**
+ * Single polling owner for autonomous messages. Call this in Dashboard.tsx
+ * (always mounted). WarRoomTimeline and useMessages read from the shared cache.
+ * Pushes new messages to the INTEL activity feed.
+ */
+export function useAutonomousPoller() {
+  const { data } = useQuery({
+    queryKey: AUTONOMOUS_MESSAGES_KEY,
+    queryFn: getAutonomousMessages,
+    refetchInterval: 3_000,
+    staleTime: 2_000,
+  });
+
+  // Push new messages to INTEL activity feed (runs only when data reference changes)
+  useEffect(() => {
+    if (!data) return;
+    const sessionStart = getSessionState().startTime || 0;
+    for (const msg of data) {
+      if (!msg.id || seenActivityIds.has(msg.id)) continue;
+      seenActivityIds.add(msg.id);
+      if (msg.timestamp && msg.timestamp < sessionStart) continue;
+
+      // Push initiating message
+      const eventType = msg.to === 'User' ? 'message' as const : 'system' as const;
+      pushEvent(eventType, msg.from, msg.content?.slice(0, 120) || 'Agent activity');
+
+      // Push response side (agent-to-agent exchanges show both sides)
+      if (msg.response && msg.to && msg.to !== 'User') {
+        pushEvent('system', msg.to, msg.response.slice(0, 120));
+      }
+    }
+  }, [data]);
 }
 
 // ── Agent States ──

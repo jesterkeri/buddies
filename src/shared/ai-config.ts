@@ -28,9 +28,12 @@ const DEFAULT_CONFIG: AiConfigState = {
   perAgent: {},
 };
 
-let cachedConfig: AiConfigState | null = DEFAULT_CONFIG;
+let cachedConfig: AiConfigState | null = null;
 
 export function loadAiConfig(): AiConfigState {
+  // Return cached config if available (invalidated by POST /config via invalidateAiConfigCache)
+  if (cachedConfig) return cachedConfig;
+
   try {
     if (existsSync(CONFIG_PATH)) {
       const raw = readFileSync(CONFIG_PATH, 'utf-8');
@@ -41,7 +44,8 @@ export function loadAiConfig(): AiConfigState {
   } catch (err) {
     logger.error(`[BUDDIES] Failed to load AI config: ${err}`);
   }
-  return cachedConfig ?? DEFAULT_CONFIG;
+  cachedConfig = DEFAULT_CONFIG;
+  return DEFAULT_CONFIG;
 }
 
 export function saveAiConfig(config: AiConfigState): void {
@@ -65,22 +69,32 @@ export function invalidateAiConfigCache(): void {
 // to this snapshot instead of marking every agent as disconnected.
 let lastGoodConfig: AiConfigState | null = null;
 
+// Providers that don't require API keys (local or free services)
+const FREE_PROVIDERS = ['ollama', 'nosana'];
+
 function checkAgentDisconnected(config: AiConfigState, agentName: string): boolean {
   const perAgent = config.perAgent[agentName];
 
   // Explicitly disconnected
   if (perAgent?.provider === 'none') return true;
 
-  // Provider set but no API key = broken, treat as disconnected
-  if (perAgent?.provider && perAgent.provider !== '' && !perAgent.apiKey) return true;
+  if (perAgent?.provider && perAgent.provider !== '') {
+    // Free providers (Ollama, Nosana) don't need API keys
+    if (FREE_PROVIDERS.includes(perAgent.provider)) return false;
+    // Paid provider set but no API key = disconnected
+    if (!perAgent.apiKey) return true;
+    // Has provider + key = connected
+    return false;
+  }
 
   // No per-agent config: check if a default provider+key exists
   if (!perAgent || !perAgent.provider || perAgent.provider === '') {
-    const hasDefault = config.defaultProvider && config.defaultProvider !== 'none' && config.defaultApiKey;
-    return !hasDefault;
+    const defaultProvider = config.defaultProvider;
+    if (!defaultProvider || defaultProvider === 'none') return true;
+    if (FREE_PROVIDERS.includes(defaultProvider)) return false;
+    return !config.defaultApiKey;
   }
 
-  // Agent has valid provider + key = connected
   return false;
 }
 
@@ -139,7 +153,7 @@ const PROVIDER_URLS: Record<string, string> = {
   xai: 'https://api.x.ai/v1',
   kimi: 'https://api.moonshot.cn/v1',
   minimax: 'https://api.minimax.chat/v1',
-  nosana: 'https://3gsrmj6gchzyws9bnc835apd4fh6t5tyeppmbxmzrzhn.node.k8s.prd.nos.ci/v1',
+  nosana: 'https://5i8frj7ann99bbw9gzpprvzj2esugg39hxbb4unypskq.node.k8s.prd.nos.ci/v1',
 };
 
 // Provider-specific embedding config (only providers that SUPPORT embeddings)
@@ -169,14 +183,11 @@ function buildSecrets(agentName: string): Record<string, string> {
     return {};
   }
 
-  // Ollama is routed through plugin-openai's OpenAI-compatible endpoint
-  // (localhost:11434/v1). No character in this project has plugin-ollama
-  // in its plugin list, so plugin-openai is the only text-generation path.
-  // Treat ollama like any other OpenAI-compat provider with a dummy apiKey
-  // (ollama ignores the Authorization header).
-  const isOllama = provider === 'ollama';
-  const apiUrl = config.apiUrl || (isOllama ? 'http://localhost:11434/v1' : PROVIDER_URLS[provider] || '');
-  const apiKey = isOllama ? (config.apiKey || 'ollama') : (config.apiKey || '');
+  // Free providers (Ollama, Nosana) don't need real API keys.
+  // Both are routed through plugin-openai's OpenAI-compatible endpoint.
+  const isFreeProvider = FREE_PROVIDERS.includes(provider);
+  const apiUrl = config.apiUrl || PROVIDER_URLS[provider] || '';
+  const apiKey = isFreeProvider ? (config.apiKey || provider) : (config.apiKey || '');
 
   const secrets: Record<string, string> = {
     OPENAI_API_KEY: apiKey,

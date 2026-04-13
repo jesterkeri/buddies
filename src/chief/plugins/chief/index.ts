@@ -1,11 +1,51 @@
 import type { Plugin, Action } from '@elizaos/core';
+import { logger } from '@elizaos/core';
 import { agentStateManager, AgentStatus } from '../../../shared/agent-state.ts';
 import { fireTrigger } from '../../../shared/triggers.ts';
 import { sendAgentMessage, postToUser } from '../../../shared/agent-messenger.ts';
 import { isAgentDisconnected } from '../../../shared/ai-config.ts';
+import { createTask } from '../../../shared/task-provider.ts';
+import { autoPickupTask } from '../../../shared/work-on-task.ts';
 import { projectContextProvider } from './providers/project-context.ts';
 import { generateStandup } from './actions/generate-standup.ts';
 import { draftPR } from './actions/draft-pr.ts';
+
+// Map agent roles to domains for smart assignment
+// Chief is NOT in this map — he's the sender, not an assignment target.
+// Explicit name mentions (e.g. "assign to Hawk") are handled by inferAssignee's name check.
+const AGENT_DOMAINS: Record<string, string[]> = {
+  Hawk: ['code', 'review', 'security', 'audit', 'test', 'bug', 'fix', 'pr', 'pull request', 'vulnerability'],
+  Radar: ['research', 'monitor', 'docs', 'documentation', 'dependency', 'update', 'scout', 'investigate'],
+  'Bounty Hunter': ['bounty', 'opportunity', 'hackathon', 'grant', 'competition', 'earn', 'money'],
+  Buddy: ['wellness', 'break', 'morale', 'team', 'onboarding', 'help', 'food', 'coffee', 'restaurant', 'location'],
+};
+
+function inferAssignee(text: string): string | undefined {
+  const lower = text.toLowerCase();
+  // Check for explicit @mention
+  for (const name of Object.keys(AGENT_DOMAINS)) {
+    if (lower.includes(name.toLowerCase())) return name;
+  }
+  // Match by domain keywords
+  let bestMatch: string | undefined;
+  let bestScore = 0;
+  for (const [agent, keywords] of Object.entries(AGENT_DOMAINS)) {
+    const score = keywords.filter((k) => lower.includes(k)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = agent;
+    }
+  }
+  return bestMatch;
+}
+
+function inferPriority(text: string): 'P0' | 'P1' | 'P2' | 'P3' {
+  const lower = text.toLowerCase();
+  if (lower.includes('critical') || lower.includes('urgent') || lower.includes('p0')) return 'P0';
+  if (lower.includes('high') || lower.includes('important') || lower.includes('p1')) return 'P1';
+  if (lower.includes('low') || lower.includes('minor') || lower.includes('p3')) return 'P3';
+  return 'P2';
+}
 
 const assignTask: Action = {
   name: 'ASSIGN_TASK',
@@ -15,7 +55,25 @@ const assignTask: Action = {
   handler: async (runtime, message, state, options, callback) => {
     agentStateManager.setState('Chief', AgentStatus.WORKING, 'Assigning task');
 
-    const text = (message.content?.text as string) || '';
+    const rawText = (message.content?.text as string) || '';
+    // Strip enriched context injection (added by frontend for follow-up/reply messages)
+    const text = rawText
+      .replace(/\n\n\[Recent context from [\s\S]*$/, '')
+      .replace(/\n\n\[Replying to [\s\S]*$/, '')
+      .trim();
+    const assignee = inferAssignee(text);
+    const priority = inferPriority(text);
+
+    // Create and persist the task
+    const task = createTask(text, priority, 'Chief', assignee, undefined);
+
+    // Auto-trigger task pickup — this sends the work prompt to the agent,
+    // which serves as both notification and work request. No separate notification needed.
+    if (assignee && !isAgentDisconnected(assignee)) {
+      autoPickupTask(assignee, task.id).catch((err) =>
+        logger.error(`[ASSIGN_TASK] Auto-pickup failed for ${assignee}: ${err}`)
+      );
+    }
 
     // Get current team status for context
     const allStates = agentStateManager.getAllStates();
@@ -24,13 +82,13 @@ const assignTask: Action = {
 
     if (callback) {
       await callback({
-        text: `Task received: "${text}"\n\nTeam availability:\n- Idle: ${idleAgents.join(', ') || 'none'}\n- Busy: ${busyAgents.join(', ') || 'none'}\n\nI'll assign this based on who's available and whose domain matches best.`,
+        text: `Task created [${priority}]: "${text}"\nAssigned to: ${assignee || 'Unassigned'}\n\nTeam availability:\n- Idle: ${idleAgents.join(', ') || 'none'}\n- Busy: ${busyAgents.join(', ') || 'none'}`,
         actions: ['ASSIGN_TASK'],
       });
     }
 
     agentStateManager.setState('Chief', AgentStatus.IDLE);
-    return { text: 'Task assigned', success: true };
+    return { text: `Task created and assigned to ${assignee || 'unassigned'}`, success: true };
   },
   examples: [
     [

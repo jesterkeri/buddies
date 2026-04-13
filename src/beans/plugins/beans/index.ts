@@ -5,6 +5,14 @@ import { sendBreakReminder, sendCelebration, isTelegramConfigured } from '../../
 import { placesContextProvider } from './providers/places-context.ts';
 import { findPlaces, type Place } from '../../../shared/places-service.ts';
 
+function normalizeLocation(raw: string): string {
+  return raw
+    .replace(/\b(?:under|below|less than|for|within)\s+₦?\s*\d[\d,]*(?:k)?\b.*$/i, '')
+    .replace(/\b(?:budget|price range)\b.*$/i, '')
+    .replace(/[,\s]+$/g, '')
+    .trim();
+}
+
 const checkWellness: Action = {
   name: 'CHECK_WELLNESS',
   similes: ['BREAK_REMINDER', 'WELLNESS_CHECK', 'TAKE_BREAK', 'REST'],
@@ -91,7 +99,7 @@ const recommendFood: Action = {
 
     // Extract location from message
     const locationMatch = text.match(/(?:near|around|in|at|close to)\s+(.+?)(?:\?|$|\.|\!)/i);
-    const location = locationMatch ? locationMatch[1].trim() : '';
+    const location = locationMatch ? normalizeLocation(locationMatch[1]) : '';
 
     if (!location) {
       if (callback) {

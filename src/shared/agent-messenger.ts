@@ -4,7 +4,7 @@ import { AGENT_COOLDOWN_MS } from './constants.ts';
 import { isAgentDisconnected } from './ai-config.ts';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { DATA_DIR } from './constants.ts';
+import { DATA_DIR, DEFAULT_MESSAGE_SERVER_ID } from './constants.ts';
 
 /**
  * Agent-to-agent messenger via ElizaOS Sessions API.
@@ -16,6 +16,8 @@ import { DATA_DIR } from './constants.ts';
 const agentIdCache = new Map<string, string>();
 // Cache: "sender:target" → sessionId
 const sessionCache = new Map<string, string>();
+// Cache: "target:user" → world ensured
+const worldCache = new Set<string>();
 // Per-agent cooldown tracking
 const lastMessageTime = new Map<string, number>();
 
@@ -28,6 +30,15 @@ export interface AgentMessage {
   content: string;
   response?: string;
   timestamp: number;
+}
+
+function isStaleSessionError(err: unknown): boolean {
+  const msg = String(err || '').toLowerCase();
+  return msg.includes('session') && (
+    msg.includes('not found') ||
+    msg.includes('expired') ||
+    msg.includes('invalid')
+  );
 }
 
 // ── Agent ID lookup ──
@@ -66,14 +77,44 @@ async function getAgentId(agentName: string, retries = 3): Promise<string | null
   return null;
 }
 
-// ── Session management ──
-
-async function getOrCreateSession(senderAgentId: string, targetAgentId: string): Promise<string | null> {
-  const key = `${senderAgentId}:${targetAgentId}`;
-  const cached = sessionCache.get(key);
-  if (cached) return cached;
+async function ensureWorldForUser(agentId: string, userId: string): Promise<void> {
+  const key = `${agentId}:${userId}`;
+  if (worldCache.has(key)) return;
 
   try {
+    await apiCall(`/api/agents/${agentId}/worlds`, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: `agent-${userId.slice(0, 8)}`,
+        messageServerId: DEFAULT_MESSAGE_SERVER_ID,
+        metadata: {
+          ownership: { ownerId: userId },
+          roles: { [userId]: 'OWNER' },
+          settings: {},
+        },
+      }),
+    });
+  } catch {
+    // World may already exist or the server may reject duplicates.
+    // Either way, we should not fail the session attempt for that.
+  }
+
+  worldCache.add(key);
+}
+
+// ── Session management ──
+
+async function getOrCreateSession(senderAgentId: string, targetAgentId: string, forceNew = false): Promise<string | null> {
+  const key = `${senderAgentId}:${targetAgentId}`;
+  if (!forceNew) {
+    const cached = sessionCache.get(key);
+    if (cached) return cached;
+  }
+  sessionCache.delete(key);
+
+  try {
+    await ensureWorldForUser(targetAgentId, senderAgentId);
+
     // Create a session where the sender talks to the target agent
     // Use sender's ID as userId (the "user" in this session is the sending agent)
     const res = await apiCall('/api/messaging/sessions', {
@@ -130,7 +171,8 @@ function storeMessage(msg: AgentMessage): void {
 export async function sendAgentMessage(
   fromAgent: string,
   text: string,
-  toAgent?: string
+  toAgent?: string,
+  options?: { skipCooldown?: boolean }
 ): Promise<{ sent: boolean; response?: string }> {
   // If no target specified, send to Chief (team lead routes everything)
   const targetName = toAgent || 'Chief';
@@ -147,12 +189,15 @@ export async function sendAgentMessage(
   }
 
   // Per-pair cooldown (allows Chief to talk to Hawk, Radar, Buddy in sequence)
+  // Task work messages skip cooldown — they need to reach the agent immediately
   const pairKey = `${fromAgent}:${targetName}`;
-  const lastTime = lastMessageTime.get(pairKey) || 0;
   const now = Date.now();
-  if (now - lastTime < AGENT_COOLDOWN_MS) {
-    logger.info(`[MESSENGER] Skipping ${fromAgent} → ${targetName} — cooldown active`);
-    return { sent: false };
+  if (!options?.skipCooldown) {
+    const lastTime = lastMessageTime.get(pairKey) || 0;
+    if (now - lastTime < AGENT_COOLDOWN_MS) {
+      logger.info(`[MESSENGER] Skipping ${fromAgent} → ${targetName} — cooldown active`);
+      return { sent: false };
+    }
   }
 
   // Look up agent IDs
@@ -170,36 +215,47 @@ export async function sendAgentMessage(
     return { sent: false };
   }
 
-  try {
-    // Send via HTTP transport — blocks until target agent responds
-    const res = await apiCall(`/api/messaging/sessions/${sessionId}/messages`, {
-      method: 'POST',
-      body: JSON.stringify({ content: text, transport: 'http' }),
-    });
+  // Send with stale-session retry
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const sid = attempt === 0 ? sessionId : await getOrCreateSession(fromId, toId, true);
+    if (!sid) continue;
 
-    lastMessageTime.set(pairKey, now);
+    try {
+      const res = await apiCall(`/api/messaging/sessions/${sid}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content: text, transport: 'http' }),
+      });
 
-    const agentResponse = res?.agentResponse;
-    const responseText = agentResponse?.text || '';
+      lastMessageTime.set(pairKey, now);
 
-    logger.info(`[MESSENGER] ${fromAgent} → ${targetName}: sent. Response: ${responseText.slice(0, 80)}...`);
+      const agentResponse = res?.agentResponse;
+      const responseText = agentResponse?.text || '';
 
-    // Store for frontend display
-    const msg: AgentMessage = {
-      id: `auto-${now}-${Math.random().toString(36).slice(2, 8)}`,
-      from: fromAgent,
-      to: targetName,
-      content: text,
-      response: responseText,
-      timestamp: now,
-    };
-    storeMessage(msg);
+      logger.info(`[MESSENGER] ${fromAgent} → ${targetName}: sent. Response: ${responseText.slice(0, 80)}...`);
 
-    return { sent: true, response: responseText };
-  } catch (err) {
-    logger.error(`[MESSENGER] Failed to send ${fromAgent} → ${targetName}: ${err}`);
-    return { sent: false };
+      const msg: AgentMessage = {
+        id: `auto-${now}-${Math.random().toString(36).slice(2, 8)}`,
+        from: fromAgent,
+        to: targetName,
+        content: text,
+        response: responseText,
+        timestamp: now,
+      };
+      storeMessage(msg);
+
+      return { sent: true, response: responseText };
+    } catch (err: any) {
+      // Only retry when the server indicates the cached session is stale.
+      if (attempt === 0 && isStaleSessionError(err)) {
+        const cacheKey = `${fromId}:${toId}`;
+        sessionCache.delete(cacheKey);
+        logger.warn(`[MESSENGER] ${fromAgent} → ${targetName}: stale session, retrying with fresh session`);
+        continue;
+      }
+      logger.error(`[MESSENGER] Failed to send ${fromAgent} → ${targetName}: ${err}`);
+    }
   }
+  return { sent: false };
 }
 
 /**

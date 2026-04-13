@@ -12,9 +12,10 @@ const PRIORITY_STYLES: Record<string, { bg: string; text: string; label: string 
 interface TaskCardProps {
   task: Task;
   cardBg?: string;
+  onClick?: () => void;
 }
 
-export default function TaskCard({ task, cardBg }: TaskCardProps) {
+export default function TaskCard({ task, cardBg, onClick }: TaskCardProps) {
   const pStyle = PRIORITY_STYLES[task.priority] || PRIORITY_STYLES.P3;
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -32,7 +33,8 @@ export default function TaskCard({ task, cardBg }: TaskCardProps) {
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      className="border-2 border-[--color-ink] shadow-[3px_3px_0px_var(--color-ink)] p-3 cursor-grab active:cursor-grabbing hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_var(--color-ink)] transition-all"
+      onClick={onClick}
+      className="border-2 border-[--color-ink] shadow-[3px_3px_0px_var(--color-ink)] p-3 cursor-pointer active:cursor-grabbing hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_var(--color-ink)] transition-all"
       style={{ backgroundColor: cardBg || 'var(--color-paper)' }}
     >
       {/* Top row: priority + delete */}
@@ -44,7 +46,7 @@ export default function TaskCard({ task, cardBg }: TaskCardProps) {
           {pStyle.label}
         </span>
         <button
-          onClick={() => deleteTask(task.id)}
+          onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
           className="w-5 h-5 flex items-center justify-center text-xs font-bold text-[--color-ink]/20 hover:text-[--color-red] hover:bg-[--color-red]/10 border border-transparent hover:border-[--color-red] transition-all"
         >
           x

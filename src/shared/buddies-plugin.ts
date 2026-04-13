@@ -3,6 +3,8 @@ import { agentStateManager, agentStateProvider, AgentStatus } from './agent-stat
 import { mentionProvider } from './mention-provider.ts';
 import { connectionStatusProvider } from './connection-provider.ts';
 import { repoContextProvider } from './repo-provider.ts';
+import { taskContextProvider } from './task-provider.ts';
+import { workOnTask } from './work-on-task.ts';
 import { bootstrapTeamChannel } from './team-channel.ts';
 import { startAutonomousLoops } from './autonomous-loops.ts';
 import { loadAiConfig, saveAiConfig, invalidateAiConfigCache, type AiConfigState } from './ai-config.ts';
@@ -28,7 +30,8 @@ const stateRoute: Route = {
 const buddiesPlugin: Plugin = {
   name: 'buddies-plugin',
   description: 'Shared team coordination — state tracking, mention detection, channel bootstrap',
-  providers: [agentStateProvider, mentionProvider, connectionStatusProvider, repoContextProvider],
+  actions: [workOnTask],
+  providers: [agentStateProvider, mentionProvider, connectionStatusProvider, repoContextProvider, taskContextProvider],
   routes: [stateRoute],
   init: async (_config, runtime) => {
     const agentName = runtime.character.name;

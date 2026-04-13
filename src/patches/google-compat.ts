@@ -20,7 +20,7 @@
  */
 
 // Hosts that handle /responses natively — don't patch these
-const NATIVE_HOSTS = new Set(['api.openai.com', 'localhost', '127.0.0.1']);
+const NATIVE_HOSTS = new Set(['api.openai.com']);
 const STRIP_PARAMS = ['frequency_penalty', 'presence_penalty', 'logprobs', 'top_logprobs', 'logit_bias'];
 const encoder = new TextEncoder();
 
@@ -178,7 +178,7 @@ function transformChatStreamToResponses(response: Response): Response {
       }
 
       const choice = Array.isArray(parsed.choices) ? parsed.choices[0] : undefined;
-      const deltaText = choice?.delta?.content;
+      const deltaText = choice?.delta?.content || choice?.delta?.reasoning;
       if (typeof deltaText === 'string' && deltaText.length > 0) {
         controller.enqueue(
           toSseChunk({
@@ -355,7 +355,7 @@ globalThis.fetch = async function patchedFetch(input: RequestInfo | URL, init?: 
           id: `msg_${data.id || Date.now()}_${i}`,
           type: 'message',
           role: c.message?.role || 'assistant',
-          content: [{ type: 'output_text', text: extractMessageText(c.message?.content), annotations: [] }],
+          content: [{ type: 'output_text', text: extractMessageText(c.message?.content) || extractMessageText(c.message?.reasoning) || '', annotations: [] }],
         }));
         const transformed = {
           id: data.id || `resp_${Date.now()}`,

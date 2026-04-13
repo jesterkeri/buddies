@@ -3,7 +3,7 @@ import { apiCall } from './http.ts';
 import { DEFAULT_MESSAGE_SERVER_ID } from './constants.ts';
 
 const TEAM_CHANNEL_NAME = 'Team Chat';
-const EXPECTED_AGENTS = 5;
+const MIN_AGENTS_TO_START = 1; // Launch with at least 1 agent, don't wait for all
 const MAX_RETRIES = 10;
 const RETRY_DELAY_MS = 3000;
 
@@ -22,11 +22,11 @@ async function waitForAgents(): Promise<boolean> {
       const agents = agentsRes?.data?.agents || agentsRes?.agents || agentsRes?.data || [];
       const count = Array.isArray(agents) ? agents.length : 0;
 
-      if (count >= EXPECTED_AGENTS) {
-        logger.info(`[BUDDIES] All ${count} agents registered (attempt ${attempt})`);
+      if (count >= MIN_AGENTS_TO_START) {
+        logger.info(`[BUDDIES] ${count} agent(s) registered (attempt ${attempt}), proceeding`);
         return true;
       }
-      logger.info(`[BUDDIES] Waiting for agents... ${count}/${EXPECTED_AGENTS} (attempt ${attempt}/${MAX_RETRIES})`);
+      logger.info(`[BUDDIES] Waiting for agents... ${count} registered (attempt ${attempt}/${MAX_RETRIES})`);
     } catch {
       logger.info(`[BUDDIES] Server not ready yet (attempt ${attempt}/${MAX_RETRIES})`);
     }
@@ -82,7 +82,7 @@ export async function bootstrapTeamChannel(_runtime: IAgentRuntime): Promise<voi
         message_server_id: messageServerId,
         participantCentralUserIds: agentIds,
         metadata: {
-          description: 'Buddies team chat — all 5 agents collaborate here',
+          description: 'Buddies team chat — all connected agents collaborate here',
           topic: 'Team Collaboration',
         },
       }),
@@ -113,25 +113,29 @@ export async function bootstrapTeamChannel(_runtime: IAgentRuntime): Promise<voi
     bootstrapComplete = true;
     logger.info('[BUDDIES] Team channel bootstrap complete');
 
-    // Keep trying to add missing agents (Chief often registers late due to timeout)
-    setTimeout(async () => {
-      try {
-        const lateAgentsRes = await apiCall('/api/agents');
-        const lateAgents = lateAgentsRes?.data?.agents || lateAgentsRes?.agents || lateAgentsRes?.data || [];
-        const lateIds = Array.isArray(lateAgents)
-          ? lateAgents.map((a: any) => a.id || a.agentId).filter(Boolean)
-          : [];
-        for (const agentId of lateIds) {
-          try {
-            await apiCall(`/api/messaging/channels/${teamChannelId}/agents`, {
-              method: 'POST',
-              body: JSON.stringify({ agentId }),
-            });
-          } catch {}
-        }
-        logger.info(`[BUDDIES] Late agent registration: added ${lateIds.length} agents to team channel`);
-      } catch {}
-    }, 15_000); // Wait 15s for Chief to finish registering
+    // Keep trying to add late agents — 3 passes at 10s, 30s, 60s
+    const retryDelays = [10_000, 30_000, 60_000];
+    for (const delay of retryDelays) {
+      setTimeout(async () => {
+        if (!teamChannelId) return;
+        try {
+          const lateAgentsRes = await apiCall('/api/agents');
+          const lateAgents = lateAgentsRes?.data?.agents || lateAgentsRes?.agents || lateAgentsRes?.data || [];
+          const lateIds = Array.isArray(lateAgents)
+            ? lateAgents.map((a: any) => a.id || a.agentId).filter(Boolean)
+            : [];
+          for (const agentId of lateIds) {
+            try {
+              await apiCall(`/api/messaging/channels/${teamChannelId}/agents`, {
+                method: 'POST',
+                body: JSON.stringify({ agentId }),
+              });
+            } catch {}
+          }
+          logger.info(`[BUDDIES] Late agent pass (${delay / 1000}s): ${lateIds.length} agents in channel`);
+        } catch {}
+      }, delay);
+    }
   } catch (err) {
     logger.error(`[BUDDIES] Team channel bootstrap failed (will retry on next startup): ${err}`);
   } finally {

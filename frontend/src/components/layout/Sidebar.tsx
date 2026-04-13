@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAgents, useAgentStates } from '../../api/hooks';
 import AgentAvatar from '../shared/AgentAvatar';
-import StatusBadge from '../shared/StatusBadge';
 import { useSession, getNextBreakIn, getBreakInterval, isBreakDue, takeBreak, setBreakStyle, setCustomDurations, getAvailableBreakStyles } from '../session/sessionStore';
+import { getAgentConnectionInfo } from '../../utils/agent-status';
 
 // Human-readable labels for break styles
 const BREAK_STYLE_LABELS: Record<string, string> = {
@@ -114,35 +114,38 @@ export default function Sidebar() {
   };
 
   const breakInterval = getBreakInterval();
-  // Count only agents with a valid API key or free provider
-  const activeAgents = agents?.filter((agent) => {
-    const agentConfig = settings.aiConfig.perAgent[agent.name];
-    const isDisconnected = agentConfig?.provider === 'none';
-    const provider = agentConfig?.provider || settings.aiConfig.defaultProvider;
-    const FREE_PROVIDERS = ['ollama', 'nosana'];
-    const isFree = FREE_PROVIDERS.includes(provider);
-    const apiKey = agentConfig?.apiKey || settings.aiConfig.defaultApiKey;
-    return !isDisconnected && (isFree || (apiKey && apiKey.length > 5));
-  }).length || 0;
-  const workingAgents = states?.filter((s) => s.status !== 'IDLE').length || 0;
+  const connectionInfos = new Map(
+    (agents || []).map((agent) => [agent.name, getAgentConnectionInfo(agent.name, settings.aiConfig, agents || [])])
+  );
+  const availableAgents = Array.from(connectionInfos.values()).filter((info) => info.state !== 'disconnected').length;
+  const configuredAgents = Array.from(connectionInfos.values()).filter((info) => info.state === 'configured').length;
+  const defaultAgents = Array.from(connectionInfos.values()).filter((info) => info.state === 'default').length;
+
+  const squadBadge = configuredAgents > 0 && defaultAgents > 0
+    ? `${configuredAgents} CONFIG / ${defaultAgents} DEFAULT`
+    : configuredAgents > 0
+      ? `${configuredAgents} CONFIGURED`
+      : defaultAgents > 0
+        ? `${defaultAgents} DEFAULT`
+        : 'NO AGENTS';
 
   return (
     <aside className="w-64 panel shadow-none rounded-none flex flex-col" style={{ backgroundColor: '#232A38', borderRight: '4px solid #0A0A0A' }}>
       <div className="tape tape-tl" />
       <div className="panel-header">
         <span>ACTIVE_SQUAD</span>
-        <span className="badge">{activeAgents} ONLINE</span>
+        <span className="badge">{squadBadge}</span>
       </div>
 
       {/* Quick stats */}
       <div className="grid grid-cols-2 gap-0 border-b-2" style={{ borderColor: 'rgba(242,244,243,0.1)' }}>
         <div className="px-3 py-2 text-center border-r" style={{ borderColor: 'rgba(242,244,243,0.1)' }}>
-          <p className="font-display text-lg text-white">{activeAgents}</p>
-          <p className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.3)' }}>AGENTS</p>
+          <p className="font-display text-lg text-white">{availableAgents}</p>
+          <p className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.3)' }}>AVAILABLE</p>
         </div>
         <div className="px-3 py-2 text-center">
-          <p className="font-display text-lg" style={{ color: workingAgents > 0 ? '#F9D616' : '#22c55e' }}>{workingAgents}</p>
-          <p className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.3)' }}>WORKING</p>
+          <p className="font-display text-lg" style={{ color: configuredAgents > 0 ? '#2BB6B3' : 'rgba(242,244,243,0.4)' }}>{configuredAgents}</p>
+          <p className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.3)' }}>CONFIGURED</p>
         </div>
       </div>
 
@@ -298,14 +301,13 @@ export default function Sidebar() {
           const role = AGENT_ROLES[agent.name] || Object.entries(AGENT_ROLES).find(([k]) => agent.name.includes(k))?.[1] || agent.name;
           const skills = AGENT_SKILLS[agent.name] || Object.entries(AGENT_SKILLS).find(([k]) => agent.name.includes(k))?.[1] || [];
 
-          // Check if agent has a valid AI provider configured
-          const agentConfig = settings.aiConfig.perAgent[agent.name];
-          const isDisconnected = agentConfig?.provider === 'none';
-          const provider = agentConfig?.provider || settings.aiConfig.defaultProvider;
-          const FREE_PROVIDERS = ['ollama', 'nosana'];
-          const isFree = FREE_PROVIDERS.includes(provider);
-          const apiKey = agentConfig?.apiKey || settings.aiConfig.defaultApiKey;
-          const isConnected = !isDisconnected && (isFree || (apiKey && apiKey.length > 5));
+          const connection = connectionInfos.get(agent.name) || {
+            state: 'disconnected',
+            label: 'DISCONNECTED',
+            color: '#E41937',
+            detail: 'No usable provider is configured',
+          };
+          const isConnected = connection.state !== 'disconnected';
 
           return (
             <div
@@ -313,7 +315,7 @@ export default function Sidebar() {
               className="px-3 py-2.5 border-2 transition-all cursor-pointer"
               style={{
                 borderColor: isConnected ? 'rgba(242,244,243,0.08)' : 'rgba(228,25,55,0.3)',
-                backgroundColor: !isConnected ? 'rgba(228,25,55,0.05)' : state?.status !== 'IDLE' ? 'rgba(242,244,243,0.03)' : 'transparent',
+                backgroundColor: !isConnected ? 'rgba(228,25,55,0.05)' : 'transparent',
               }}
             >
               <div className="flex items-center gap-2.5">
@@ -323,19 +325,19 @@ export default function Sidebar() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <EditableName agentKey={agent.name} />
-                    {isConnected ? (
-                      <StatusBadge status={state?.status || 'IDLE'} />
-                    ) : (
-                      <span
-                        className="text-[8px] font-mono font-bold px-1.5 py-0.5 border-2"
-                        style={{ borderColor: '#E41937', color: '#E41937', backgroundColor: 'rgba(228,25,55,0.15)' }}
-                      >
-                        NOT CONNECTED
-                      </span>
-                    )}
+                    <span
+                      className="text-[8px] font-mono font-bold px-1.5 py-0.5 border-2"
+                      style={{
+                        borderColor: connection.color,
+                        color: connection.state === 'configured' ? '#0A0A0A' : connection.color,
+                        backgroundColor: connection.state === 'configured' ? connection.color : `${connection.color}22`,
+                      }}
+                    >
+                      {connection.label}
+                    </span>
                   </div>
                   <p className="text-[9px] font-mono" style={{ color: isConnected ? 'rgba(242,244,243,0.35)' : '#E41937' }}>
-                    {isConnected ? role : 'Needs API key in Connect tab'}
+                    {isConnected ? `${role} • ${connection.detail}` : connection.detail}
                   </p>
                 </div>
               </div>
@@ -356,12 +358,6 @@ export default function Sidebar() {
                 ))}
               </div>
 
-              {/* Current task */}
-              {state?.currentTask && isConnected && (
-                <p className="text-[9px] font-mono mt-1 ml-10" style={{ color: '#F9D616' }}>
-                  &gt; {state.currentTask}
-                </p>
-              )}
             </div>
           );
         })}
@@ -381,7 +377,9 @@ export default function Sidebar() {
         </div>
         <div className="flex items-center justify-between">
           <span className="text-[8px] font-mono" style={{ color: 'rgba(242,244,243,0.25)' }}>AGENTS</span>
-          <span className="text-[8px] font-mono" style={{ color: '#2BB6B3' }}>{activeAgents} ONLINE</span>
+          <span className="text-[8px] font-mono" style={{ color: configuredAgents > 0 ? '#2BB6B3' : defaultAgents > 0 ? '#22C55E' : '#E41937' }}>
+            {configuredAgents > 0 ? `${configuredAgents} CONFIGURED` : defaultAgents > 0 ? `${defaultAgents} DEFAULT` : 'DISCONNECTED'}
+          </span>
         </div>
       </div>
 

@@ -14,7 +14,7 @@ export const DEFAULT_MESSAGE_SERVER_ID = '00000000-0000-0000-0000-000000000000';
 // Autonomous loop intervals
 // In development, use shorter intervals for testing. Set FAST_LOOPS=true in .env
 const FAST = process.env.FAST_LOOPS === 'true';
-export const STANDUP_INTERVAL_MS = FAST ? 5 * 60 * 1000 : 8 * 60 * 60 * 1000; // 5min dev / 8hr prod
+export const STANDUP_INTERVAL_MS = FAST ? 30 * 60 * 1000 : 8 * 60 * 60 * 1000; // 30min dev / 8hr prod
 export const IDLE_CHECK_INTERVAL_MS = FAST ? 3 * 60 * 1000 : 30 * 60 * 1000; // 3min dev / 30min prod
 export const IDLE_THRESHOLD_MS = FAST ? 2 * 60 * 1000 : 25 * 60 * 1000; // 2min dev / 25min prod
 export const OPPORTUNITY_SCAN_INTERVAL_MS = FAST ? 5 * 60 * 1000 : 4 * 60 * 60 * 1000; // 5min dev / 4hr prod

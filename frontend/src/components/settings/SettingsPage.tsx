@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSettings, updateIntegration, updateNotifications, updateAiConfig, updateAgentModel, type IntegrationConfig } from './settingsStore';
 import { getAgentColor, AGENT_NAMES } from '../../types';
+import { CONFIG_SERVER } from '../../api/config';
 
 const AI_PROVIDERS = [
   { value: 'ollama', label: 'OLLAMA', desc: 'Local models (free)', url: 'http://127.0.0.1:11434/v1', models: ['gemma4', 'gemma3:9b', 'qwen3:8b', 'qwen2.5:7b', 'qwen2.5:14b', 'llama3.3:8b', 'llama3.1:70b', 'deepseek-r1:8b', 'phi-4:14b', 'mistral:7b'], needsKey: false, color: '#F2F4F3' },
-  { value: 'nosana', label: 'NOSANA QWEN', desc: 'Qwen3.5-27B (competition)', url: 'https://3gsrmj6gchzyws9bnc835apd4fh6t5tyeppmbxmzrzhn.node.k8s.prd.nos.ci/v1', models: ['Qwen3.5-27B-AWQ-4bit'], needsKey: false, color: '#2BB6B3' },
+  { value: 'nosana', label: 'NOSANA QWEN', desc: 'Qwen3.5-27B (competition)', url: 'https://5i8frj7ann99bbw9gzpprvzj2esugg39hxbb4unypskq.node.k8s.prd.nos.ci/v1', models: ['Qwen3.5-9B-FP8'], needsKey: false, color: '#2BB6B3' },
   { value: 'openai', label: 'OPENAI', desc: 'GPT-5.4, o3, o4-mini', url: 'https://api.openai.com/v1', models: ['gpt-5.4', 'gpt-5.4-pro', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.2', 'o3', 'o4-mini', 'gpt-4o', 'gpt-4o-mini'], needsKey: true, color: '#22c55e' },
   { value: 'anthropic', label: 'ANTHROPIC', desc: 'Claude Opus 4.6, Sonnet 4.6', url: 'https://api.anthropic.com/v1', models: ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-sonnet-4-5', 'claude-opus-4-5'], needsKey: true, color: '#d4a574' },
   { value: 'google', label: 'GOOGLE', desc: 'Gemini 3.1 Pro, 2.5 Pro', url: 'https://generativelanguage.googleapis.com/v1beta/openai', models: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'], needsKey: true, color: '#4285f4' },
@@ -43,22 +44,6 @@ const INTEGRATIONS: {
       'Copy the bot token above',
       'Message your bot, then get chat_id from:',
       'api.telegram.org/bot<TOKEN>/getUpdates',
-    ],
-  },
-  {
-    key: 'discord',
-    label: 'DISCORD',
-    icon: '🎮',
-    color: '#5865F2',
-    bgColor: '#1a1a3a',
-    desc: 'Notifications in your Discord server.',
-    fields: [
-      { key: 'webhookUrl', label: 'WEBHOOK URL', placeholder: 'https://discord.com/api/webhooks/...', type: 'text' },
-    ],
-    setupGuide: [
-      'Server Settings → Integrations → Webhooks',
-      'Create webhook named "Buddies"',
-      'Copy the URL above',
     ],
   },
   {
@@ -353,6 +338,18 @@ function AgentModelCard({ name, config, currentProvider, providerInfo, isExpande
               DISCONNECT
             </button>
           )}
+          {isDisconnected && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                updateAgentModel(name, { provider: 'nosana', apiKey: 'nosana', apiUrl: 'https://5i8frj7ann99bbw9gzpprvzj2esugg39hxbb4unypskq.node.k8s.prd.nos.ci/v1', model: 'Qwen3.5-9B-FP8' });
+              }}
+              className="px-2 py-0.5 text-[9px] font-display uppercase border-2 border-[#22C55E] hover:bg-[#22C55E] hover:text-[#0a0a0a] transition-all"
+              style={{ color: '#22C55E', backgroundColor: 'rgba(34,197,94,0.1)' }}
+            >
+              RECONNECT DEFAULT
+            </button>
+          )}
           <span
             className="px-2 py-0.5 text-[9px] font-mono font-bold border-2 border-[--color-ink]"
             style={{
@@ -437,7 +434,69 @@ function AgentModelCard({ name, config, currentProvider, providerInfo, isExpande
               })}
             </div>
           </div>
+
+          {/* Test Connection button — show for keyless providers (ollama/nosana) or when a key is provided */}
+          {((providerInfo && !providerInfo.needsKey) || (config?.apiKey && config.apiKey.length > 3)) && (
+            <TestConnectionButton
+              provider={config.provider}
+              apiKey={config.apiKey || ''}
+              apiUrl={config.apiUrl || providerInfo?.url || ''}
+              model={config.model || providerInfo?.models[0] || ''}
+            />
+          )}
         </div>
+      )}
+    </div>
+  );
+}
+
+function TestConnectionButton({ provider, apiKey, apiUrl, model }: { provider: string; apiKey: string; apiUrl: string; model: string }) {
+  const [status, setStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [error, setError] = useState('');
+
+  // Reset status when credentials change
+  useEffect(() => {
+    setStatus('idle');
+    setError('');
+  }, [provider, apiKey, apiUrl, model]);
+
+  const test = async () => {
+    setStatus('testing');
+    setError('');
+    try {
+      const res = await fetch(`${CONFIG_SERVER}/config/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, apiKey, apiUrl, model }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStatus('success');
+      } else {
+        setStatus('error');
+        setError(data.error || 'Connection failed');
+      }
+    } catch (err: any) {
+      setStatus('error');
+      setError(err.message || 'Network error');
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 mt-2">
+      <button
+        onClick={test}
+        disabled={status === 'testing'}
+        className="px-3 py-1 text-[10px] font-mono font-bold uppercase border-2 border-[--color-ink] transition-all hover:opacity-80 disabled:opacity-40"
+        style={{
+          backgroundColor: status === 'success' ? '#22c55e' : status === 'error' ? '#E41937' : '#1a1f2e',
+          color: status === 'success' || status === 'error' ? '#0a0a0a' : '#F2F4F3',
+        }}
+      >
+        {status === 'testing' ? 'TESTING...' : status === 'success' ? 'CONNECTED' : status === 'error' ? 'FAILED' : 'TEST CONNECTION'}
+      </button>
+      {status === 'error' && error && (
+        <span className="text-[9px] font-mono" style={{ color: '#E41937' }}>{error.slice(0, 60)}</span>
       )}
     </div>
   );

@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { useTasks, type TaskStatus } from './taskStore';
 import TaskColumn from './TaskColumn';
 import AddTaskModal from './AddTaskModal';
+import TaskDetailPanel from './TaskDetailPanel';
 
 const COLUMNS: TaskStatus[] = ['todo', 'in_progress', 'review', 'done'];
 
 export default function TaskBoard() {
   const tasks = useTasks();
   const [showAdd, setShowAdd] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const tasksByStatus = (status: TaskStatus) =>
     tasks
@@ -36,7 +38,7 @@ export default function TaskBoard() {
       <div className="flex-1 overflow-x-auto p-3">
         <div className="grid grid-cols-4 gap-3 h-full min-w-[700px]">
           {COLUMNS.map((status) => (
-            <TaskColumn key={status} status={status} tasks={tasksByStatus(status)} />
+            <TaskColumn key={status} status={status} tasks={tasksByStatus(status)} onTaskClick={setSelectedTaskId} />
           ))}
         </div>
       </div>
@@ -50,6 +52,7 @@ export default function TaskBoard() {
       </div>
 
       {showAdd && <AddTaskModal onClose={() => setShowAdd(false)} />}
+      {selectedTaskId && <TaskDetailPanel taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />}
     </div>
   );
 }

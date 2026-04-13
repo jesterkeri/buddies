@@ -24,9 +24,10 @@ COPY . .
 # Build backend
 RUN bun run build
 
-# Build frontend and replace built-in ElizaOS client
+# Build frontend and replace built-in ElizaOS client (both possible serve paths)
 RUN cd frontend && bun install && bun run build
 RUN cp -r frontend/dist/* node_modules/@elizaos/server/dist/client/
+RUN if [ -d frontend/node_modules/@elizaos/server/dist/client ]; then cp -r frontend/dist/* frontend/node_modules/@elizaos/server/dist/client/; fi
 
 RUN mkdir -p /app/data
 

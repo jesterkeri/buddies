@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getAutonomousMessages } from '../../api/client';
+import { AUTONOMOUS_MESSAGES_KEY } from '../../api/hooks';
 import { getAgentColor } from '../../types';
 import { useSession } from '../session/sessionStore';
 
@@ -13,11 +14,12 @@ export default function WarRoomTimeline() {
   const session = useSession();
   const sessionStart = session.startTime || 0;
 
+  // Reads from Dashboard's poller cache. staleTime: Infinity prevents remount refetches.
+  // queryFn is kept as fallback if cache is cold on first mount (joins Dashboard's in-flight query).
   const { data: allMessagesRaw = [], isLoading } = useQuery({
-    queryKey: ['autonomous-messages'],
+    queryKey: AUTONOMOUS_MESSAGES_KEY,
     queryFn: getAutonomousMessages,
-    refetchInterval: isReplaying ? false : 3000,
-    staleTime: 2000,
+    staleTime: Infinity,
   });
 
   // Filter out messages from previous sessions

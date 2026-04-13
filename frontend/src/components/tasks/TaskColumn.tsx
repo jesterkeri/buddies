@@ -13,9 +13,10 @@ const COLUMN_CONFIG: Record<TaskStatus, { label: string; bg: string; text: strin
 interface TaskColumnProps {
   status: TaskStatus;
   tasks: Task[];
+  onTaskClick?: (taskId: string) => void;
 }
 
-export default function TaskColumn({ status, tasks }: TaskColumnProps) {
+export default function TaskColumn({ status, tasks, onTaskClick }: TaskColumnProps) {
   const config = COLUMN_CONFIG[status];
   const [dragOver, setDragOver] = useState(false);
 
@@ -66,7 +67,7 @@ export default function TaskColumn({ status, tasks }: TaskColumnProps) {
         }}
       >
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} cardBg={config.cardBg} />
+          <TaskCard key={task.id} task={task} cardBg={config.cardBg} onClick={() => onTaskClick?.(task.id)} />
         ))}
         {tasks.length === 0 && (
           <div className="text-center py-8 border-2 border-dashed border-[--color-paper]/10">

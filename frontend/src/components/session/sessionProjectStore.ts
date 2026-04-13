@@ -95,6 +95,43 @@ type Listener = () => void;
 const listeners = new Set<Listener>();
 let state = loadState();
 
+// Boot-time hydration from backend (backend is canonical for session config)
+// If backend says connected but localStorage is missing repo data, re-fetch from GitHub.
+(async () => {
+  try {
+    const res = await fetch(`${CONFIG_SERVER}/session`);
+    if (res.ok) {
+      const json = await res.json();
+      const backend = json?.data;
+      if (backend && backend.repoUrl) {
+        // Always restore the repo URL
+        state = { ...state, repoUrl: backend.repoUrl || state.repoUrl };
+
+        if (backend.repoConnected && state.githubToken && !state.repoInfo) {
+          // Backend says connected, we have a token, but missing repo data — re-fetch
+          saveState(state);
+          listeners.forEach((l) => l());
+          try {
+            await connectRepo();
+          } catch {}
+        } else if (backend.repoConnected && !state.githubToken) {
+          // Backend says connected but no local token — can't restore.
+          // Don't show "CONNECTED" badge if we can't actually fetch repo data.
+          // User needs to re-enter their token.
+          state = { ...state, repoConnected: false };
+          saveState(state);
+          listeners.forEach((l) => l());
+        } else {
+          // Token + data already in localStorage — just sync the URL
+          state = { ...state, repoConnected: backend.repoConnected ?? state.repoConnected };
+          saveState(state);
+          listeners.forEach((l) => l());
+        }
+      }
+    }
+  } catch {}
+})();
+
 function notify(): void {
   saveState(state);
   listeners.forEach((l) => l());
